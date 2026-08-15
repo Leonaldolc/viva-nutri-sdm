@@ -172,6 +172,43 @@ export async function loginUser({ email, password }) {
 }
 
 /**
+ * Solicita recuperação de senha via Neon Auth
+ */
+export async function requestPasswordReset(email) {
+  if (!email || !email.includes('@')) {
+    throw new Error('Informe um e-mail válido para solicitar a recuperação de senha.');
+  }
+
+  try {
+    const response = await fetch(`${NEON_AUTH_BASE_URL}/forget-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        redirectTo: window.location.origin
+      })
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const rawError = parseErrorMessage(data, 'Falha ao solicitar recuperação de senha.');
+      throw new Error(rawError);
+    }
+
+    return { success: true, message: 'Link de redefinição enviado para seu e-mail.' };
+  } catch (error) {
+    console.error('Erro na recuperação de senha:', error);
+    if (error.message.includes('Failed to fetch')) {
+      throw new Error('Não foi possível conectar ao servidor. Tente novamente mais tarde.');
+    }
+    throw error;
+  }
+}
+
+/**
  * Encerra a sessão atual
  */
 export async function logoutUser() {
