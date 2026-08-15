@@ -7,13 +7,32 @@ const SESSION_STORAGE_KEY = 'viva_nutri_user_session';
  * Normaliza erros retornados pela API Neon Auth ou pela rede
  */
 function parseErrorMessage(data, defaultMsg = 'Ocorreu um erro ao processar sua solicitação.') {
-  if (typeof data === 'string') return data;
-  if (data?.message) return data.message;
-  if (data?.error) {
-    if (typeof data.error === 'string') return data.error;
-    if (data.error.message) return data.error.message;
+  let msg = defaultMsg;
+  if (typeof data === 'string') {
+    msg = data;
+  } else if (data?.message) {
+    msg = data.message;
+  } else if (data?.error) {
+    if (typeof data.error === 'string') msg = data.error;
+    else if (data.error.message) msg = data.error.message;
   }
-  return defaultMsg;
+
+  // Traduções amigáveis de mensagens da API Better Auth / Neon Auth
+  const lower = String(msg).toLowerCase();
+  if (lower.includes('invalid origin')) {
+    return 'Origem de requisição não autorizada. As origens locais foram configuradas, recarregue a página.';
+  }
+  if (lower.includes('already exists') || lower.includes('duplicate') || lower.includes('email already in use')) {
+    return 'Este e-mail já está cadastrado. Tente fazer login ou use outro e-mail.';
+  }
+  if (lower.includes('invalid credentials') || lower.includes('invalid_email_or_password') || lower.includes('invalid password')) {
+    return 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
+  }
+  if (lower.includes('user not found')) {
+    return 'Nenhuma conta encontrada com este e-mail.';
+  }
+
+  return msg;
 }
 
 /**
