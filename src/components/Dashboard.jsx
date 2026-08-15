@@ -1,8 +1,9 @@
 import React from 'react';
 import { LogOut, Users, Calendar, Utensils, ShieldCheck, UserCheck } from 'lucide-react';
 import Logo from './Logo';
+import ThemeToggle from './ThemeToggle';
 
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
   const userName = user?.name || user?.email?.split('@')[0] || 'Nutricionista';
   const userInitial = userName.charAt(0).toUpperCase();
 
@@ -14,6 +15,8 @@ export default function Dashboard({ user, onLogout }) {
         </div>
 
         <div className="dashboard-user-section">
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} variant="compact" />
+
           <div className="user-badge">
             <div className="user-avatar">{userInitial}</div>
             <div className="user-info">
@@ -67,7 +70,7 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         </div>
 
-        <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '32px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="dashboard-panel" style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '32px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--success-bg)', color: 'var(--success-text)' }}>
               <ShieldCheck size={24} />

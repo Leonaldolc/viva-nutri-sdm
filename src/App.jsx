@@ -4,10 +4,35 @@ import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import { getCurrentSession, logoutUser } from './services/neonAuth';
 
+const THEME_STORAGE_KEY = 'viva_nutri_theme';
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('login'); // 'login' | 'register' | 'dashboard'
   const [initializing, setInitializing] = useState(true);
+  
+  // Tema padrão 'dark' com suporte a persistência
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem(THEME_STORAGE_KEY) || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  // Atualiza atributo no HTML e salva no localStorage
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (err) {
+      console.warn('Erro ao salvar tema:', err);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   // Verifica se há sessão ativa ao inicializar o aplicativo
   useEffect(() => {
@@ -43,12 +68,14 @@ export default function App() {
     );
   }
 
-  // Se já está logado, força a exibição do dashboard (Regra 25)
+  // Se já está logado, exibe o dashboard
   if (currentUser || view === 'dashboard') {
     return (
       <Dashboard
         user={currentUser}
         onLogout={handleLogout}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -58,6 +85,8 @@ export default function App() {
       <Register
         onSwitchToLogin={() => setView('login')}
         onRegisterSuccess={handleRegisterSuccess}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -66,6 +95,8 @@ export default function App() {
     <Login
       onSwitchToRegister={() => setView('register')}
       onLoginSuccess={handleLoginSuccess}
+      theme={theme}
+      onToggleTheme={toggleTheme}
     />
   );
 }

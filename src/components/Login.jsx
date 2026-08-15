@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import Logo from './Logo';
+import ThemeToggle from './ThemeToggle';
 import { loginUser, requestPasswordReset } from '../services/neonAuth';
 
 const STORAGE_KEY_REMEMBER = 'viva_nutri_remember_me';
 const STORAGE_KEY_SAVED_EMAIL = 'viva_nutri_saved_email';
 
-export default function Login({ onSwitchToRegister, onLoginSuccess }) {
+export default function Login({ onSwitchToRegister, onLoginSuccess, theme, onToggleTheme }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -110,6 +111,8 @@ export default function Login({ onSwitchToRegister, onLoginSuccess }) {
 
   return (
     <div className="auth-bg-wrapper">
+      <ThemeToggle theme={theme} onToggle={onToggleTheme} variant="floating" />
+
       <div className="auth-blob auth-blob-1"></div>
       <div className="auth-blob auth-blob-2"></div>
       <div className="auth-blob auth-blob-3"></div>

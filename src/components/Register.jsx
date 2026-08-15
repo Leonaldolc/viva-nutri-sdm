@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import Logo from './Logo';
+import ThemeToggle from './ThemeToggle';
 import { registerUser } from '../services/neonAuth';
 
-export default function Register({ onSwitchToLogin, onRegisterSuccess }) {
+export default function Register({ onSwitchToLogin, onRegisterSuccess, theme, onToggleTheme }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,6 +52,8 @@ export default function Register({ onSwitchToLogin, onRegisterSuccess }) {
 
   return (
     <div className="auth-bg-wrapper">
+      <ThemeToggle theme={theme} onToggle={onToggleTheme} variant="floating" />
+
       <div className="auth-blob auth-blob-1"></div>
       <div className="auth-blob auth-blob-2"></div>
       <div className="auth-blob auth-blob-3"></div>
