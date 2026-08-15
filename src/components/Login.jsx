@@ -112,6 +112,7 @@ export default function Login({ onSwitchToRegister, onLoginSuccess }) {
     <div className="auth-bg-wrapper">
       <div className="auth-blob auth-blob-1"></div>
       <div className="auth-blob auth-blob-2"></div>
+      <div className="auth-blob auth-blob-3"></div>
 
       <div className="auth-container">
         <div className="auth-card">

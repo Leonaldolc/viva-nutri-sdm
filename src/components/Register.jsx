@@ -53,11 +53,12 @@ export default function Register({ onSwitchToLogin, onRegisterSuccess }) {
     <div className="auth-bg-wrapper">
       <div className="auth-blob auth-blob-1"></div>
       <div className="auth-blob auth-blob-2"></div>
+      <div className="auth-blob auth-blob-3"></div>
 
       <div className="auth-container">
         <div className="auth-card">
           <div className="auth-header">
-            <Logo size="large" />
+            <Logo size="large" variant="vertical" />
             <h1 className="auth-title">Crie sua conta</h1>
             <p className="auth-subtitle">Comece a gerenciar seus pacientes com excelência</p>
           </div>
