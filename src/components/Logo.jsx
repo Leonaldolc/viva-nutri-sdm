@@ -1,64 +1,200 @@
 import React from 'react';
 
-export default function Logo({ size = 'medium', className = '' }) {
+export default function Logo({ 
+  size = 'medium', 
+  variant = 'vertical', 
+  showTagline = false,
+  className = '' 
+}) {
   const iconSizes = {
+    xs: 28,
     small: 36,
     medium: 52,
-    large: 68
+    large: 68,
+    xl: 84
   };
 
   const textSizes = {
-    small: '1.25rem',
-    medium: '1.65rem',
-    large: '2.1rem'
+    xs: { main: '1rem', sub: '0.55rem', gap: '6px' },
+    small: { main: '1.25rem', sub: '0.62rem', gap: '8px' },
+    medium: { main: '1.65rem', sub: '0.72rem', gap: '10px' },
+    large: { main: '2.1rem', sub: '0.82rem', gap: '12px' },
+    xl: { main: '2.6rem', sub: '0.95rem', gap: '14px' }
   };
 
   const dimension = iconSizes[size] || 52;
-  const fontStyle = { fontSize: textSizes[size] || '1.65rem' };
+  const fontConfig = textSizes[size] || textSizes.medium;
+
+  const isHorizontal = variant === 'horizontal';
 
   return (
-    <div className={`viva-logo-container ${className}`} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-      <div className="viva-logo-icon" style={{ width: dimension, height: dimension, filter: 'drop-shadow(0px 4px 12px rgba(124, 58, 237, 0.2))' }}>
-        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+    <div 
+      className={`viva-logo-container ${isHorizontal ? 'viva-logo-horizontal' : 'viva-logo-vertical'} ${className}`}
+      style={{
+        display: 'inline-flex',
+        flexDirection: isHorizontal ? 'row' : 'column',
+        alignItems: 'center',
+        gap: fontConfig.gap,
+        userSelect: 'none',
+        textDecoration: 'none'
+      }}
+    >
+      {/* Dynamic Emblem */}
+      <div 
+        className="viva-logo-icon-wrapper"
+        style={{
+          width: dimension,
+          height: dimension,
+          minWidth: dimension,
+          minHeight: dimension,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease'
+        }}
+      >
+        <svg 
+          viewBox="0 0 120 120" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg" 
+          style={{ width: '100%', height: '100%', overflow: 'visible' }}
+        >
           <defs>
-            <linearGradient id="heartPinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#EC4899" />
-              <stop offset="100%" stopColor="#BE185D" />
+            {/* Violet/Purple Gradient */}
+            <linearGradient id="vnPurpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#8B5CF6" />
+              <stop offset="60%" stopColor="#7C3AED" />
+              <stop offset="100%" stopColor="#5B21B6" />
             </linearGradient>
-            <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#F97316" />
+
+            {/* Vibrant Emerald Leaf Gradient */}
+            <linearGradient id="vnEmeraldGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#059669" />
+              <stop offset="50%" stopColor="#10B981" />
+              <stop offset="100%" stopColor="#34D399" />
+            </linearGradient>
+
+            {/* Glowing Sunset Orange Gradient */}
+            <linearGradient id="vnOrangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FB923C" />
+              <stop offset="50%" stopColor="#F97316" />
               <stop offset="100%" stopColor="#EA580C" />
             </linearGradient>
-            <linearGradient id="greenLeafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#22C55E" />
-              <stop offset="100%" stopColor="#15803D" />
+
+            {/* Warm Solar Spark Gradient */}
+            <linearGradient id="vnSparkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FDE047" />
+              <stop offset="100%" stopColor="#F97316" />
             </linearGradient>
-            <linearGradient id="purpleAccent" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#8B5CF6" />
-              <stop offset="100%" stopColor="#6D28D9" />
-            </linearGradient>
+
+            {/* Soft Ambient Shadow Filter */}
+            <filter id="vnDropGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#7C3AED" floodOpacity="0.25" />
+            </filter>
           </defs>
 
-          {/* Leaves at the top */}
-          <path d="M 46,24 C 38,10 24,14 34,26 C 42,32 46,24 46,24 Z" fill="url(#greenLeafGrad)" />
-          <path d="M 54,20 C 62,4 82,10 68,26 C 58,34 54,20 54,20 Z" fill="url(#greenLeafGrad)" />
+          {/* Background Soft Glow Aura */}
+          <g filter="url(#vnDropGlow)">
+            {/* Left Botanical Leaf Wing */}
+            <path 
+              d="M 60,16 C 36,16 16,36 16,62 C 16,84 36,100 58,104 C 44,92 36,76 38,58 C 40,40 48,26 60,16 Z" 
+              fill="url(#vnEmeraldGrad)" 
+            />
 
-          {/* Heart/Apple Body */}
-          <path d="M 50,92 C 34,80 12,62 12,42 C 12,28 24,20 36,24 C 44,27 48,32 50,35 C 52,32 56,27 64,24 C 76,20 88,28 88,42 C 88,62 66,80 50,92 Z" fill="url(#heartPinkGrad)" />
-          
-          {/* Inner Orange Swoosh / Active Figure */}
-          <path d="M 50,38 C 38,38 30,48 30,60 C 30,74 44,82 50,86 C 54,83 66,76 68,64 C 64,68 58,72 50,72 C 42,72 38,66 38,58 C 38,48 46,42 50,38 Z" fill="url(#orangeGrad)" />
-          
-          {/* Green Dynamic Leaf Overlay */}
-          <path d="M 40,78 C 54,66 76,46 86,20 C 80,34 60,68 36,84 C 38,82 39,80 40,78 Z" fill="url(#greenLeafGrad)" />
+            {/* Right Health Care Heart Arc */}
+            <path 
+              d="M 60,16 C 72,26 80,40 82,58 C 84,76 76,92 62,104 C 84,100 104,84 104,62 C 104,36 84,16 60,16 Z" 
+              fill="url(#vnPurpleGrad)" 
+            />
 
-          {/* Figure head dot */}
-          <circle cx="52" cy="40" r="4.5" fill="#FFFFFF" />
+            {/* Central Nourishing Vitality Flame / Seed */}
+            <path 
+              d="M 60,40 C 50,50 46,62 48,74 C 50,86 58,94 60,98 C 62,94 70,86 72,74 C 74,62 70,50 60,40 Z" 
+              fill="url(#vnOrangeGrad)" 
+            />
+
+            {/* Delicate Light Reflection Curves */}
+            <path 
+              d="M 28,42 C 22,54 22,68 28,80" 
+              stroke="rgba(255, 255, 255, 0.45)" 
+              strokeWidth="3.5" 
+              strokeLinecap="round" 
+            />
+            
+            <path 
+              d="M 92,42 C 98,54 98,68 92,80" 
+              stroke="rgba(255, 255, 255, 0.35)" 
+              strokeWidth="3" 
+              strokeLinecap="round" 
+            />
+
+            {/* Golden Vitality Spark Node */}
+            <circle cx="60" cy="28" r="5" fill="url(#vnSparkGrad)" />
+            <circle cx="60" cy="28" r="2" fill="#FFFFFF" opacity="0.8" />
+          </g>
         </svg>
       </div>
-      <div className="viva-logo-text" style={{ ...fontStyle, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-        <span style={{ color: 'var(--primary-purple)' }}>VIVA</span>
-        <span style={{ color: 'var(--primary-orange)', marginLeft: '4px' }}>NUTRI</span>
+
+      {/* Typography Brand Block */}
+      <div 
+        className="viva-logo-text-group" 
+        style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: isHorizontal ? 'flex-start' : 'center',
+          lineHeight: 1
+        }}
+      >
+        <div 
+          className="viva-logo-brand" 
+          style={{ 
+            fontSize: fontConfig.main, 
+            fontWeight: 900, 
+            letterSpacing: '-0.04em', 
+            lineHeight: 1.05,
+            display: 'flex',
+            alignItems: 'baseline'
+          }}
+        >
+          <span 
+            style={{ 
+              background: 'linear-gradient(135deg, #7C3AED 0%, #6366F1 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 2px 10px rgba(124, 58, 237, 0.15)'
+            }}
+          >
+            VIVA
+          </span>
+          <span 
+            style={{ 
+              background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              marginLeft: '4px',
+              textShadow: '0 2px 10px rgba(249, 115, 22, 0.15)'
+            }}
+          >
+            NUTRI
+          </span>
+        </div>
+
+        {showTagline && (
+          <span 
+            className="viva-logo-tagline"
+            style={{
+              fontSize: fontConfig.sub,
+              fontWeight: 700,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted, #64748B)',
+              marginTop: '4px'
+            }}
+          >
+            Nutrição & Saúde
+          </span>
+        )}
       </div>
     </div>
   );

@@ -535,3 +535,29 @@ body {
   color: var(--text-muted);
   font-weight: 500;
 }
+
+/* ==========================================================================
+   Viva Nutri Brand Logo Styles & Animations
+   ========================================================================== */
+.viva-logo-container {
+  transition: transform var(--transition-normal);
+  cursor: pointer;
+}
+
+.viva-logo-container:hover .viva-logo-icon-wrapper {
+  transform: translateY(-2px) scale(1.05);
+  filter: drop-shadow(0 8px 20px rgba(124, 58, 237, 0.35));
+}
+
+.viva-logo-container:active .viva-logo-icon-wrapper {
+  transform: translateY(0) scale(0.98);
+}
+
+.viva-logo-horizontal {
+  gap: 12px;
+}
+
+.viva-logo-vertical {
+  margin-bottom: 4px;
+}
+

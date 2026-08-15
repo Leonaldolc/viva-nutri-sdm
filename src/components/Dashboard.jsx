@@ -10,7 +10,7 @@ export default function Dashboard({ user, onLogout }) {
     <div className="dashboard-container">
       <nav className="dashboard-nav">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Logo size="small" />
+          <Logo size="small" variant="horizontal" />
         </div>
 
         <div className="dashboard-user-section">
