@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import WatermarkBackground from './WatermarkBackground';
 import { registerUser } from '../services/neonAuth';
 
 export default function Register({ onSwitchToLogin, onRegisterSuccess, theme, onToggleTheme }) {
@@ -53,6 +54,7 @@ export default function Register({ onSwitchToLogin, onRegisterSuccess, theme, on
   return (
     <div className="auth-bg-wrapper">
       <ThemeToggle theme={theme} onToggle={onToggleTheme} variant="floating" />
+      <WatermarkBackground />
 
       <div className="auth-blob auth-blob-1"></div>
       <div className="auth-blob auth-blob-2"></div>

@@ -354,6 +354,144 @@ body {
   100% { transform: translate(-40px, 50px) scale(0.85); }
 }
 
+/* ==========================================================================
+   Watermark Background System
+   ========================================================================== */
+.watermark-bg-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.watermark-pattern-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.07;
+  transition: opacity 0.4s ease;
+}
+
+[data-theme="light"] .watermark-pattern-svg {
+  opacity: 0.05;
+}
+
+/* Individual parts inside watermark */
+.watermark-leaf {
+  color: #10B981;
+}
+
+.watermark-heart {
+  color: #8B5CF6;
+}
+
+.watermark-seed {
+  color: #F97316;
+}
+
+.watermark-spark {
+  color: #FBBF24;
+}
+
+[data-theme="light"] .watermark-leaf {
+  color: #059669;
+}
+[data-theme="light"] .watermark-heart {
+  color: #7C3AED;
+}
+[data-theme="light"] .watermark-seed {
+  color: #EA580C;
+}
+
+/* Floating Ambient Watermarks */
+.floating-watermark-item {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.floating-watermark-item svg {
+  width: 100%;
+  height: 100%;
+}
+
+.watermark-float-1 {
+  width: 120px;
+  height: 120px;
+  top: 8%;
+  left: 6%;
+  opacity: 0.12;
+  animation: floatWatermark1 24s infinite ease-in-out alternate;
+  filter: blur(1.5px) drop-shadow(0 10px 25px rgba(16, 185, 129, 0.25));
+}
+
+.watermark-float-2 {
+  width: 140px;
+  height: 140px;
+  bottom: 10%;
+  right: 7%;
+  opacity: 0.13;
+  animation: floatWatermark2 28s infinite ease-in-out alternate;
+  filter: blur(1.2px) drop-shadow(0 10px 25px rgba(249, 115, 22, 0.25));
+}
+
+.watermark-float-3 {
+  width: 90px;
+  height: 90px;
+  top: 22%;
+  right: 14%;
+  opacity: 0.09;
+  animation: floatWatermark3 20s infinite ease-in-out alternate;
+  filter: blur(2px) drop-shadow(0 8px 20px rgba(124, 58, 237, 0.2));
+}
+
+[data-theme="light"] .watermark-float-1,
+[data-theme="light"] .watermark-float-2,
+[data-theme="light"] .watermark-float-3 {
+  opacity: 0.07;
+}
+
+@keyframes floatWatermark1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(25px, 35px) rotate(15deg) scale(1.06);
+  }
+  100% {
+    transform: translate(-20px, 45px) rotate(-10deg) scale(0.96);
+  }
+}
+
+@keyframes floatWatermark2 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(-30px, -25px) rotate(-20deg) scale(1.08);
+  }
+  100% {
+    transform: translate(25px, -40px) rotate(12deg) scale(0.94);
+  }
+}
+
+@keyframes floatWatermark3 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(-20px, 30px) rotate(-15deg) scale(1.05);
+  }
+  100% {
+    transform: translate(15px, -20px) rotate(18deg) scale(0.92);
+  }
+}
+
 /* Auth Card */
 .auth-container {
   width: 100%;

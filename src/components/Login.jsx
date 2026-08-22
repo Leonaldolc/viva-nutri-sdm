@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import WatermarkBackground from './WatermarkBackground';
 import { loginUser, requestPasswordReset } from '../services/neonAuth';
 
 const STORAGE_KEY_REMEMBER = 'viva_nutri_remember_me';
@@ -112,6 +113,7 @@ export default function Login({ onSwitchToRegister, onLoginSuccess, theme, onTog
   return (
     <div className="auth-bg-wrapper">
       <ThemeToggle theme={theme} onToggle={onToggleTheme} variant="floating" />
+      <WatermarkBackground />
 
       <div className="auth-blob auth-blob-1"></div>
       <div className="auth-blob auth-blob-2"></div>
