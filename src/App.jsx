@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
+import InstallPwaPrompt from './components/InstallPwaPrompt';
 import { getCurrentSession, logoutUser } from './services/neonAuth';
 
 const THEME_STORAGE_KEY = 'viva_nutri_theme';
@@ -68,35 +69,34 @@ export default function App() {
     );
   }
 
-  // Se já está logado, exibe o dashboard
-  if (currentUser || view === 'dashboard') {
-    return (
-      <Dashboard
-        user={currentUser}
-        onLogout={handleLogout}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
-
-  if (view === 'register') {
-    return (
-      <Register
-        onSwitchToLogin={() => setView('login')}
-        onRegisterSuccess={handleRegisterSuccess}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
-
   return (
-    <Login
-      onSwitchToRegister={() => setView('register')}
-      onLoginSuccess={handleLoginSuccess}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-    />
+    <>
+      {currentUser || view === 'dashboard' ? (
+        <Dashboard
+          user={currentUser}
+          onLogout={handleLogout}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      ) : view === 'register' ? (
+        <Register
+          onSwitchToLogin={() => setView('login')}
+          onRegisterSuccess={handleRegisterSuccess}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      ) : (
+        <Login
+          onSwitchToRegister={() => setView('register')}
+          onLoginSuccess={handleLoginSuccess}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      )}
+
+      {/* Prompt de Instalação PWA Inteligente */}
+      <InstallPwaPrompt />
+    </>
   );
 }
+
