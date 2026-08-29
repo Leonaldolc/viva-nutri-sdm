@@ -730,4 +730,54 @@ export async function adicionarMedicaoEvolucao(pacienteId, medicao, nutricionist
   return updated.find(p => p.id === pacienteId);
 }
 
+/**
+ * Adiciona um novo arquivo/exame ao prontuário do paciente
+ */
+export async function anexarArquivoPaciente(pacienteId, anexoData, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+  const now = new Date().toISOString();
 
+  const novoAnexo = {
+    id: `anx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    nome: anexoData.nome || 'Documento sem título',
+    tipo: anexoData.tipo || 'application/octet-stream',
+    tamanho: anexoData.tamanho || 0,
+    categoria: anexoData.categoria || 'Exame Laboratorial',
+    observacao: anexoData.observacao || '',
+    dataUrl: anexoData.dataUrl || '',
+    created_at: now
+  };
+
+  const updated = pacientes.map(p => {
+    if (p.id !== pacienteId) return p;
+    const anexosExistentes = Array.isArray(p.anexos) ? p.anexos : [];
+    return {
+      ...p,
+      anexos: [novoAnexo, ...anexosExistentes]
+    };
+  });
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return { novoAnexo, pacienteAtualizado: updated.find(p => p.id === pacienteId) };
+}
+
+/**
+ * Remove um arquivo/exame do prontuário do paciente
+ */
+export async function removerArquivoPaciente(pacienteId, anexoId, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+
+  const updated = pacientes.map(p => {
+    if (p.id !== pacienteId) return p;
+    const anexosFiltrados = (p.anexos || []).filter(a => a.id !== anexoId);
+    return {
+      ...p,
+      anexos: anexosFiltrados
+    };
+  });
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return updated.find(p => p.id === pacienteId);
+}

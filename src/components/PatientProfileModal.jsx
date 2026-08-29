@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   X, 
   Calendar, 
@@ -9,30 +9,42 @@ import {
   AlertTriangle, 
   CheckCircle, 
   Plus, 
-  FileText,
-  TrendingDown,
-  TrendingUp,
-  Activity,
-  Scale,
-  Percent,
-  Flame,
-  LineChart,
-  CalendarPlus,
-  PlusCircle,
-  Sparkles,
-  Edit3,
-  Save,
-  Trash2,
-  Coffee,
-  Droplet,
-  HeartPulse,
-  Check
+  FileText, 
+  TrendingDown, 
+  TrendingUp, 
+  Activity, 
+  Scale, 
+  Percent, 
+  Flame, 
+  LineChart, 
+  CalendarPlus, 
+  PlusCircle, 
+  Sparkles, 
+  Edit3, 
+  Save, 
+  Trash2, 
+  Coffee, 
+  Droplet, 
+  HeartPulse, 
+  Check,
+  Paperclip,
+  UploadCloud,
+  File,
+  FileSpreadsheet,
+  Download,
+  Eye,
+  Image as ImageIcon,
+  FileArchive,
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   agendarConsulta, 
   adicionarMedicaoEvolucao, 
   atualizarPaciente, 
-  excluirPaciente 
+  excluirPaciente,
+  anexarArquivoPaciente,
+  removerArquivoPaciente
 } from '../services/dashboardService';
 
 export default function PatientProfileModal({ 
@@ -41,7 +53,7 @@ export default function PatientProfileModal({
   onActionSuccess, 
   nutricionistaId 
 }) {
-  const [activeTab, setActiveTab] = useState('evolucao'); // 'evolucao' | 'prontuario' | 'nova-medicao' | 'agendar'
+  const [activeTab, setActiveTab] = useState('evolucao'); // 'evolucao' | 'prontuario' | 'anexos' | 'nova-medicao' | 'agendar'
   const [selectedMetric, setSelectedMetric] = useState('peso'); // 'peso' | 'gordura' | 'massaMagra' | 'cintura' | 'adesao'
 
   // Estado para agendamento
@@ -93,6 +105,16 @@ export default function PatientProfileModal({
   const [editAtividadeFisica, setEditAtividadeFisica] = useState(Boolean(paciente?.praticaAtividadeFisica));
   const [editAtividadeDetalhes, setEditAtividadeDetalhes] = useState(paciente?.atividadeFisicaDetalhes || '');
   const [editObs, setEditObs] = useState(paciente?.observacoesGerais || '');
+
+  // ----------------------------------------------------
+  // ESTADO PARA ANEXOS & ARQUIVOS DE EXAMES
+  // ----------------------------------------------------
+  const [anexosList, setAnexosList] = useState(paciente?.anexos || []);
+  const [selectedCategoria, setSelectedCategoria] = useState('Exame Laboratorial');
+  const [anexoObservacao, setAnexoObservacao] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [previewingAnexo, setPreviewingAnexo] = useState(null);
+  const fileInputRef = useRef(null);
 
   if (!paciente) return null;
 
@@ -230,6 +252,83 @@ export default function PatientProfileModal({
     }
   };
 
+  // ----------------------------------------------------
+  // MANIPULAÇÃO DE ANEXOS E UPLOAD DE ARQUIVOS/IMAGENS
+  // ----------------------------------------------------
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setUploadingFile(true);
+    setErrorMsg('');
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const fileDataUrl = reader.result;
+          const { novoAnexo } = await anexarArquivoPaciente(paciente.id, {
+            nome: file.name,
+            tipo: file.type || 'application/octet-stream',
+            tamanho: file.size,
+            categoria: selectedCategoria,
+            observacao: anexoObservacao.trim(),
+            dataUrl: fileDataUrl
+          }, nutricionistaId);
+
+          setAnexosList(prev => [novoAnexo, ...prev]);
+          setSuccessMsg(`Arquivo "${file.name}" anexado com sucesso!`);
+          setAnexoObservacao('');
+          if (onActionSuccess) onActionSuccess();
+          setTimeout(() => setSuccessMsg(''), 3000);
+        } catch (err) {
+          setErrorMsg('Erro ao anexar o arquivo.');
+        } finally {
+          setUploadingFile(false);
+        }
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoverAnexo = async (anexoId, e) => {
+    e.stopPropagation();
+    const confirmRemove = window.confirm('Deseja realmente remover este anexo do prontuário?');
+    if (!confirmRemove) return;
+
+    try {
+      await removerArquivoPaciente(paciente.id, anexoId, nutricionistaId);
+      setAnexosList(prev => prev.filter(a => a.id !== anexoId));
+      setSuccessMsg('Arquivo removido com sucesso!');
+      if (onActionSuccess) onActionSuccess();
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } catch (err) {
+      setErrorMsg('Erro ao remover anexo.');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 KB';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (mimeType, fileName) => {
+    if (mimeType?.startsWith('image/')) return <ImageIcon size={20} className="icon-orange" />;
+    if (mimeType?.includes('pdf')) return <FileText size={20} className="icon-red" />;
+    if (mimeType?.includes('sheet') || mimeType?.includes('excel') || fileName?.endsWith('.xls') || fileName?.endsWith('.xlsx')) {
+      return <FileSpreadsheet size={20} className="icon-green" />;
+    }
+    if (mimeType?.includes('zip') || mimeType?.includes('rar')) return <FileArchive size={20} className="icon-purple" />;
+    return <File size={20} className="icon-blue" />;
+  };
+
   // Cálculos de Delta (Evolução)
   const pesoInicial = paciente.pesoInicial || historico[0]?.peso || 75;
   const pesoAtual = paciente.pesoAtual || historico[historico.length - 1]?.peso || 72;
@@ -247,11 +346,11 @@ export default function PatientProfileModal({
   const cinturaAtual = paciente.cinturaAtual || historico[historico.length - 1]?.cintura || 84;
   const deltaCintura = Math.round((cinturaAtual - cinturaInicial) * 10) / 10;
 
-  // Preparação de pontos do gráfico SVG dinâmico por métrica selecionada
+  // Config de Gráfico
   const metricConfig = {
-    peso: { label: 'Peso Corporal', unit: 'kg', color: '#10B981', meta: paciente.pesoMeta || 70 },
+    peso: { label: 'Peso Corporal', unit: 'kg', color: '#7C3AED', meta: paciente.pesoMeta || 70 },
     gordura: { label: 'Gordura Corporal', unit: '%', color: '#EF4444', meta: 20 },
-    massaMagra: { label: 'Massa Magra', unit: 'kg', color: '#7C3AED', meta: 35 },
+    massaMagra: { label: 'Massa Magra', unit: 'kg', color: '#10B981', meta: 35 },
     cintura: { label: 'Circunferência Abdominal', unit: 'cm', color: '#F97316', meta: 80 },
     adesao: { label: 'Adesão ao Plano', unit: '%', color: '#3B82F6', meta: 90 }
   };
@@ -262,7 +361,6 @@ export default function PatientProfileModal({
   const maxVal = Math.max(...chartValues, currentCfg.meta) * 1.08;
   const range = (maxVal - minVal) || 1;
 
-  // Mapeamento de coordenadas SVG (viewBox 0 0 500 160)
   const svgPoints = historico.map((h, i) => {
     const x = historico.length > 1 ? 40 + (i / (historico.length - 1)) * 420 : 250;
     const val = Number(h[selectedMetric] || 0);
@@ -299,6 +397,11 @@ export default function PatientProfileModal({
               {paciente.imc && (
                 <span className="badge-imc-pill">IMC {paciente.imc}</span>
               )}
+              {anexosList.length > 0 && (
+                <span className="badge-files-pill">
+                  <Paperclip size={12} /> {anexosList.length} arquivo(s)
+                </span>
+              )}
               {paciente.diasSemConsulta >= 30 && (
                 <span className="badge-status-alert">
                   <AlertTriangle size={12} /> Sem retorno há {paciente.diasSemConsulta}d
@@ -332,7 +435,20 @@ export default function PatientProfileModal({
             onClick={() => setActiveTab('prontuario')}
           >
             <FileText size={16} />
-            <span>Prontuário Completo (CRUD)</span>
+            <span>Prontuário (CRUD)</span>
+          </button>
+
+          {/* NOVA ABA: ANEXOS & EXAMES */}
+          <button 
+            type="button"
+            className={`modal-tab-btn ${activeTab === 'anexos' ? 'modal-tab-active' : ''}`}
+            onClick={() => setActiveTab('anexos')}
+          >
+            <Paperclip size={16} />
+            <span>Anexos & Exames</span>
+            {anexosList.length > 0 && (
+              <span className="tab-counter-badge">{anexosList.length}</span>
+            )}
           </button>
 
           <button 
@@ -374,7 +490,6 @@ export default function PatientProfileModal({
               ========================================================================= */}
           {activeTab === 'evolucao' && (
             <div className="evolution-view-content">
-              
               {/* Cards de Resumo Antropométrico e Deltas */}
               <div className="evolution-metrics-grid">
                 <div className="evo-card">
@@ -489,15 +604,12 @@ export default function PatientProfileModal({
                       </linearGradient>
                     </defs>
 
-                    {/* Grid Lines */}
                     <line x1="40" y1="30" x2="460" y2="30" stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
                     <line x1="40" y1="85" x2="460" y2="85" stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
                     <line x1="40" y1="140" x2="460" y2="140" stroke="rgba(255,255,255,0.08)" />
 
-                    {/* Area Fill */}
                     {areaD && <path d={areaD} fill="url(#areaGradient)" />}
 
-                    {/* Line Stroke */}
                     {pathD && (
                       <path 
                         d={pathD} 
@@ -509,7 +621,6 @@ export default function PatientProfileModal({
                       />
                     )}
 
-                    {/* Data Points */}
                     {svgPoints.map((pt, idx) => (
                       <g key={idx}>
                         <circle cx={pt.x} cy={pt.y} r="5" fill="#FFFFFF" stroke={currentCfg.color} strokeWidth="3" />
@@ -569,7 +680,6 @@ export default function PatientProfileModal({
               </div>
 
               {isEditingProntuario ? (
-                /* Formulário de Edição Completo */
                 <form onSubmit={handleSalvarProntuario} className="crud-edit-form">
                   <div className="crud-category-box">
                     <h4 className="crud-cat-title"><User size={16} /> 1. Dados Pessoais</h4>
@@ -764,7 +874,6 @@ export default function PatientProfileModal({
                   </div>
                 </form>
               ) : (
-                /* Visualização Detalhada de Leitura do Prontuário */
                 <div className="crud-view-details">
                   <div className="detail-cards-grid">
                     {/* Card Pessoal */}
@@ -826,7 +935,195 @@ export default function PatientProfileModal({
           )}
 
           {/* =========================================================================
-              ABA 3: LANÇAR NOVA MEDIÇÃO
+              ABA 3: ANEXOS & EXAMES (NOVO — UPLOAD DE ARQUIVOS E IMAGENS)
+              ========================================================================= */}
+          {activeTab === 'anexos' && (
+            <div className="attachments-tab-content animated-fade-in">
+              
+              {/* Painel de Upload Drag & Drop / Selecionar */}
+              <div className="attachment-upload-card">
+                <div className="upload-header-row">
+                  <div>
+                    <h3 className="upload-card-title">
+                      <Paperclip size={18} className="icon-purple" /> Anexar Exame ou Documento
+                    </h3>
+                    <p className="upload-card-desc">
+                      Anexe qualquer tipo de arquivo (PDF, imagens de exames, bioimpedância, fotos de refeições, laudos médicos, planilhas, etc.).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="upload-controls-grid">
+                  <div className="form-group">
+                    <label className="form-label">Categoria do Documento</label>
+                    <select 
+                      className="form-input select-category-input"
+                      value={selectedCategoria}
+                      onChange={(e) => setSelectedCategoria(e.target.value)}
+                    >
+                      <option value="Exame Laboratorial / Sangue">🩸 Exame Laboratorial / Sangue</option>
+                      <option value="Bioimpedância & Composição Corporal">⚖️ Bioimpedância & Composição Corporal</option>
+                      <option value="Laudo & Encaminhamento Médico">🩺 Laudo & Encaminhamento Médico</option>
+                      <option value="Foto de Prato & Diário Alimentar">📸 Foto de Prato & Diário Alimentar</option>
+                      <option value="Exame de Imagem (Ultrassom / Raio-X)">🩻 Exame de Imagem</option>
+                      <option value="Outros Arquivos">📁 Outros Arquivos</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Observações / Notas do Arquivo (Opcional)</label>
+                    <input 
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: Hemograma completo e lipidograma - Laboratório Fleury"
+                      value={anexoObservacao}
+                      onChange={(e) => setAnexoObservacao(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Input File Escondido */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  onChange={handleFileUpload} 
+                  multiple
+                  style={{ display: 'none' }}
+                />
+
+                <div 
+                  className="upload-dropzone"
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                >
+                  <div className="dropzone-icon-circle">
+                    <UploadCloud size={32} />
+                  </div>
+                  <div className="dropzone-text-group">
+                    <h4 className="dropzone-title">
+                      {uploadingFile ? 'Processando arquivo...' : 'Clique para selecionar arquivos ou imagens'}
+                    </h4>
+                    <p className="dropzone-subtitle">
+                      Suporta PDF, JPG, PNG, WEBP, DOCX, XLSX, TXT, DICOM e qualquer formato (sem limite rígido)
+                    </p>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn-select-files"
+                    disabled={uploadingFile}
+                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                  >
+                    <Plus size={16} />
+                    <span>Selecionar do Computador</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista de Arquivos Anexados */}
+              <div className="attached-files-section">
+                <div className="attached-section-header">
+                  <h4 className="attached-title">
+                    Arquivos Salvos no Prontuário ({anexosList.length})
+                  </h4>
+                  <span className="security-notice-pill">
+                    <ShieldCheck size={13} /> Armazenamento Seguro e Criptografado
+                  </span>
+                </div>
+
+                {anexosList.length > 0 ? (
+                  <div className="attachments-grid">
+                    {anexosList.map((anexo) => {
+                      const isImage = anexo.tipo?.startsWith('image/');
+                      return (
+                        <div key={anexo.id} className="attachment-file-card">
+                          
+                          {/* Preview visual se for imagem */}
+                          {isImage && anexo.dataUrl ? (
+                            <div className="attachment-image-thumb" onClick={() => setPreviewingAnexo(anexo)}>
+                              <img src={anexo.dataUrl} alt={anexo.nome} />
+                              <div className="thumb-hover-overlay">
+                                <Eye size={18} />
+                                <span>Visualizar Imagem</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="attachment-doc-thumb">
+                              {getFileIcon(anexo.tipo, anexo.nome)}
+                            </div>
+                          )}
+
+                          <div className="attachment-meta-info">
+                            <span className="attachment-cat-badge">{anexo.categoria || 'Documento'}</span>
+                            <h5 className="attachment-filename" title={anexo.nome}>{anexo.nome}</h5>
+                            
+                            <div className="attachment-sub-details">
+                              <span>{formatFileSize(anexo.tamanho)}</span>
+                              <span>•</span>
+                              <span>{new Date(anexo.created_at || Date.now()).toLocaleDateString('pt-BR')}</span>
+                            </div>
+
+                            {anexo.observacao && (
+                              <p className="attachment-note-text" title={anexo.observacao}>
+                                "{anexo.observacao}"
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="attachment-actions-row">
+                            {anexo.dataUrl && (
+                              <>
+                                <button 
+                                  type="button" 
+                                  className="btn-file-action" 
+                                  onClick={() => setPreviewingAnexo(anexo)}
+                                  title="Visualizar arquivo"
+                                >
+                                  <Eye size={14} />
+                                  <span>Abrir</span>
+                                </button>
+
+                                <a 
+                                  href={anexo.dataUrl} 
+                                  download={anexo.nome}
+                                  className="btn-file-action btn-download"
+                                  title="Baixar arquivo no computador"
+                                >
+                                  <Download size={14} />
+                                  <span>Baixar</span>
+                                </a>
+                              </>
+                            )}
+
+                            <button 
+                              type="button" 
+                              className="btn-file-action btn-file-delete"
+                              onClick={(e) => handleRemoverAnexo(anexo.id, e)}
+                              title="Remover anexo"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="empty-attachments-box">
+                    <Paperclip size={36} className="empty-paperclip-icon" />
+                    <h4>Nenhum arquivo ou exame anexado</h4>
+                    <p>Faça upload de exames laboratoriais, fotos de bioimpedância ou receitas médicas acima para manter o histórico completo.</p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
+          {/* =========================================================================
+              ABA 4: LANÇAR NOVA MEDIÇÃO
               ========================================================================= */}
           {activeTab === 'nova-medicao' && (
             <form onSubmit={handleSalvarMedicao} className="modal-new-metric-tab">
@@ -913,7 +1210,7 @@ export default function PatientProfileModal({
           )}
 
           {/* =========================================================================
-              ABA 4: AGENDAR RETORNO
+              ABA 5: AGENDAR RETORNO
               ========================================================================= */}
           {activeTab === 'agendar' && (
             <form onSubmit={handleSchedule} className="modal-schedule-tab">
@@ -971,6 +1268,59 @@ export default function PatientProfileModal({
           )}
 
         </div>
+
+        {/* Modal de Pré-Visualização de Anexo (Imagem ou PDF/Doc) */}
+        {previewingAnexo && (
+          <div className="file-preview-modal-backdrop" onClick={() => setPreviewingAnexo(null)}>
+            <div className="file-preview-card" onClick={(e) => e.stopPropagation()}>
+              <div className="preview-header">
+                <div className="preview-title-wrap">
+                  {getFileIcon(previewingAnexo.tipo, previewingAnexo.nome)}
+                  <div>
+                    <h4 className="preview-name">{previewingAnexo.nome}</h4>
+                    <span className="preview-sub">{previewingAnexo.categoria} • {formatFileSize(previewingAnexo.tamanho)}</span>
+                  </div>
+                </div>
+                <div className="preview-actions">
+                  {previewingAnexo.dataUrl && (
+                    <a 
+                      href={previewingAnexo.dataUrl} 
+                      download={previewingAnexo.nome}
+                      className="btn-download-preview"
+                    >
+                      <Download size={16} /> Baixar
+                    </a>
+                  )}
+                  <button 
+                    type="button" 
+                    className="btn-close-preview"
+                    onClick={() => setPreviewingAnexo(null)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="preview-body">
+                {previewingAnexo.tipo?.startsWith('image/') ? (
+                  <img src={previewingAnexo.dataUrl} alt={previewingAnexo.nome} className="preview-full-image" />
+                ) : previewingAnexo.tipo?.includes('pdf') ? (
+                  <iframe src={previewingAnexo.dataUrl} title={previewingAnexo.nome} className="preview-pdf-frame" />
+                ) : (
+                  <div className="preview-unsupported">
+                    <File size={48} className="icon-purple" />
+                    <h4>Pré-visualização direta não disponível para este formato</h4>
+                    <p>O arquivo está íntegro e salvo com segurança. Você pode baixá-lo no seu computador.</p>
+                    <a href={previewingAnexo.dataUrl} download={previewingAnexo.nome} className="btn-primary" style={{ marginTop: '12px' }}>
+                      <Download size={16} /> Baixar {previewingAnexo.nome}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
