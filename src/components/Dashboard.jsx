@@ -50,6 +50,43 @@ import {
 
 
 
+class ProfileErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Erro no modal do paciente:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="modal-backdrop" onClick={this.props.onClose}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', padding: '24px', textAlign: 'center' }}>
+            <div style={{ color: '#EF4444', marginBottom: '12px' }}>
+              <AlertTriangle size={48} style={{ margin: '0 auto' }} />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem' }}>Ops! Ocorreu um problema ao carregar o prontuário</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              {this.state.error?.message || 'Erro inesperado de renderização.'}
+            </p>
+            <button type="button" className="btn-primary" onClick={this.props.onClose} style={{ margin: '0 auto' }}>
+              Fechar e Tentar Novamente
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
   const [activeNav, setActiveNav] = useState('dashboard'); // 'dashboard' | 'pacientes' | 'novo-paciente' | 'agenda'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -704,26 +741,28 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
 
       {/* Modal de Perfil e Prontuário do Paciente */}
       {selectedPatient && (
-        <PatientProfileModal
-          paciente={(() => {
-            const full = (metrics.pacientesAnaliticos || []).find(p => p.id === selectedPatient.id);
-            const base = full ? { ...full, ...selectedPatient } : selectedPatient;
-            return {
-              ...base,
-              nome: base.nome || 'Paciente',
-              pesoAtual: Number(base.pesoAtual) || 70,
-              pesoInicial: Number(base.pesoInicial) || Number(base.pesoAtual) || 70,
-              altura: Number(base.altura) || 170,
-              objetivo: base.objetivo || 'Saúde Geral',
-              historicoEvolucao: Array.isArray(base.historicoEvolucao) ? base.historicoEvolucao : [],
-              planosAlimentares: Array.isArray(base.planosAlimentares) ? base.planosAlimentares : [],
-              anexos: Array.isArray(base.anexos) ? base.anexos : []
-            };
-          })()}
-          onClose={() => setSelectedPatient(null)}
-          onActionSuccess={() => loadData()}
-          nutricionistaId={nutricionistaId}
-        />
+        <ProfileErrorBoundary onClose={() => setSelectedPatient(null)}>
+          <PatientProfileModal
+            paciente={(() => {
+              const full = (metrics.pacientesAnaliticos || []).find(p => p.id === selectedPatient.id);
+              const base = full ? { ...full, ...selectedPatient } : selectedPatient;
+              return {
+                ...base,
+                nome: base.nome || 'Paciente',
+                pesoAtual: Number(base.pesoAtual) || 70,
+                pesoInicial: Number(base.pesoInicial) || Number(base.pesoAtual) || 70,
+                altura: Number(base.altura) || 170,
+                objetivo: base.objetivo || 'Saúde Geral',
+                historicoEvolucao: Array.isArray(base.historicoEvolucao) ? base.historicoEvolucao : [],
+                planosAlimentares: Array.isArray(base.planosAlimentares) ? base.planosAlimentares : [],
+                anexos: Array.isArray(base.anexos) ? base.anexos : []
+              };
+            })()}
+            onClose={() => setSelectedPatient(null)}
+            onActionSuccess={() => loadData()}
+            nutricionistaId={nutricionistaId}
+          />
+        </ProfileErrorBoundary>
       )}
 
       {/* Modal de Cadastro de Novo Paciente Rápido (se invocado) */}

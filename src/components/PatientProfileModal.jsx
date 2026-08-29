@@ -251,14 +251,35 @@ export default function PatientProfileModal({
     check();
   }, [editingConsultaId, editConsultaData, editConsultaHora, nutricionistaId]);
 
-  if (!paciente) return null;
-
-  const historico = paciente.historicoEvolucao && paciente.historicoEvolucao.length > 0
-    ? paciente.historicoEvolucao
-    : [
-      { data: paciente.created_at || new Date().toISOString(), peso: paciente.pesoInicial || 75, gordura: paciente.gorduraInicial || 25, massaMagra: 30, cintura: 85, adesao: 80, notas: 'Consulta Inicial' },
-      { data: paciente.ultima_consulta || new Date().toISOString(), peso: paciente.pesoAtual || 72, gordura: paciente.gorduraAtual || 22, massaMagra: 31, cintura: 80, adesao: 90, notas: 'Acompanhamento' }
+  const historico = useMemo(() => {
+    if (paciente?.historicoEvolucao && Array.isArray(paciente.historicoEvolucao) && paciente.historicoEvolucao.length > 0) {
+      return paciente.historicoEvolucao;
+    }
+    return [
+      { data: paciente?.created_at || new Date().toISOString(), peso: Number(paciente?.pesoInicial) || Number(paciente?.pesoAtual) || 75, gordura: Number(paciente?.gorduraInicial) || Number(paciente?.gorduraAtual) || 25, massaMagra: 30, cintura: 85, adesao: 80, notas: 'Consulta Inicial' },
+      { data: paciente?.ultima_consulta || new Date().toISOString(), peso: Number(paciente?.pesoAtual) || 72, gordura: Number(paciente?.gorduraAtual) || 22, massaMagra: 31, cintura: 80, adesao: 90, notas: 'Acompanhamento' }
     ];
+  }, [paciente?.historicoEvolucao, paciente?.created_at, paciente?.pesoInicial, paciente?.pesoAtual, paciente?.gorduraInicial, paciente?.gorduraAtual, paciente?.ultima_consulta]);
+
+  const historicoConsultasDesc = useMemo(() => {
+    const list = Array.isArray(paciente?.historicoEvolucao) && paciente.historicoEvolucao.length > 0
+      ? [...paciente.historicoEvolucao]
+      : (Array.isArray(consultasPaciente) && consultasPaciente.length > 0
+          ? consultasPaciente.map(c => ({
+              id: c.id,
+              data: c.data_consulta || c.data || new Date().toISOString(),
+              peso: Number(c.peso) || Number(paciente?.pesoAtual) || 70,
+              gordura: c.gordura ? Number(c.gordura) : paciente?.gorduraAtual,
+              massaMagra: c.massaMagra,
+              cintura: c.cintura ? Number(c.cintura) : paciente?.cinturaAtual,
+              quadril: c.quadril ? Number(c.quadril) : paciente?.quadrilAtual,
+              notas: c.observacoes || c.tipo || 'Consulta de Retorno',
+              proximoRetorno: c.proximoRetorno
+            }))
+          : [...historico]
+        );
+    return list.sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+  }, [paciente?.historicoEvolucao, paciente?.pesoAtual, paciente?.gorduraAtual, paciente?.cinturaAtual, paciente?.quadrilAtual, consultasPaciente, historico]);
 
   // Iniciar edição de uma consulta
   const handleStartEditConsulta = (consulta) => {
