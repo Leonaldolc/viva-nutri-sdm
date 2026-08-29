@@ -52,6 +52,27 @@ export default function ClinicalCalendarView({
   const [modalTipo, setModalTipo] = useState('Consulta de Retorno');
   const [submitting, setSubmitting] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState(null); // Dia clicado na visão de mês
+  const [scheduleError, setScheduleError] = useState(null);
+
+  // Verificação em TEMPO REAL de Conflito de Horário
+  const conflictAppointment = useMemo(() => {
+    if (!showScheduleModal || !modalData || !modalHora) return null;
+    try {
+      const [h, m] = modalHora.split(':');
+      const selectedDate = new Date(modalData);
+      selectedDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+      const selectedTime = selectedDate.getTime();
+      const DURATION_MS = 40 * 60 * 1000; // janela de 40 minutos
+
+      return consultas.find(c => {
+        if (c.status === 'cancelada') return false;
+        const cTime = new Date(c.data_consulta).getTime();
+        return Math.abs(selectedTime - cTime) < DURATION_MS;
+      }) || null;
+    } catch {
+      return null;
+    }
+  }, [showScheduleModal, modalData, modalHora, consultas]);
 
   const loadConsultas = async () => {
     try {
@@ -114,6 +135,7 @@ export default function ClinicalCalendarView({
              c.status !== 'cancelada';
     }).sort((a, b) => new Date(a.data_consulta) - new Date(b.data_consulta));
   }, [consultas]);
+
 
   // ----------------------------------------------------
   // CÁLCULO DA VISÃO SEMANAL (Segunda a Domingo)
@@ -231,7 +253,13 @@ export default function ClinicalCalendarView({
     e.preventDefault();
     if (!modalPatientId || !modalData || !modalHora) return;
 
+    if (conflictAppointment) {
+      setScheduleError(`Conflito de Horário: Já existe uma consulta para ${conflictAppointment.paciente_nome} às ${formatTime(conflictAppointment.data_consulta)}.`);
+      return;
+    }
+
     setSubmitting(true);
+    setScheduleError(null);
     try {
       const paciente = pacientes.find(p => p.id === modalPatientId);
       const [h, m] = modalHora.split(':');
@@ -246,10 +274,12 @@ export default function ClinicalCalendarView({
       }, nutricionistaId);
 
       setShowScheduleModal(false);
+      setScheduleError(null);
       await loadConsultas();
       if (onRefreshParent) onRefreshParent();
     } catch (err) {
       console.error(err);
+      setScheduleError(err.message || 'Erro ao agendar consulta. Verifique os dados e tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -257,11 +287,13 @@ export default function ClinicalCalendarView({
 
   const handleOpenScheduleForDate = (isoDate) => {
     setModalData(isoDate || new Date().toISOString().split('T')[0]);
+    setScheduleError(null);
     if (pacientes.length > 0 && !modalPatientId) {
       setModalPatientId(pacientes[0].id);
     }
     setShowScheduleModal(true);
   };
+
 
   const handleToggleConcluida = async (consultaId, currentStatus, e) => {
     e.stopPropagation();
@@ -765,9 +797,12 @@ export default function ClinicalCalendarView({
                   <label className="form-label">Data da Consulta *</label>
                   <input 
                     type="date"
-                    className="form-input"
+                    className={`form-input ${conflictAppointment ? 'input-error-border' : ''}`}
                     value={modalData}
-                    onChange={(e) => setModalData(e.target.value)}
+                    onChange={(e) => {
+                      setModalData(e.target.value);
+                      setScheduleError(null);
+                    }}
                     required
                   />
                 </div>
@@ -776,13 +811,71 @@ export default function ClinicalCalendarView({
                   <label className="form-label">Horário *</label>
                   <input 
                     type="time"
-                    className="form-input"
+                    className={`form-input ${conflictAppointment ? 'input-error-border' : ''}`}
                     value={modalHora}
-                    onChange={(e) => setModalHora(e.target.value)}
+                    onChange={(e) => {
+                      setModalHora(e.target.value);
+                      setScheduleError(null);
+                    }}
                     required
                   />
                 </div>
               </div>
+
+              {/* ALERTA VISUAL DE CONFLITO EM TEMPO REAL */}
+              {conflictAppointment && (
+                <div className="alert-schedule-conflict animated-fade-in" role="alert">
+                  <div className="conflict-icon-wrap">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div className="conflict-text-wrap">
+                    <h5 className="conflict-heading">⚠️ Horário Indisponível (Conflito de Agenda)</h5>
+                    <p className="conflict-desc">
+                      O paciente <strong>{conflictAppointment.paciente_nome}</strong> já está agendado para esta data às <strong>{formatTime(conflictAppointment.data_consulta)}</strong> ({conflictAppointment.tipo || 'Consulta'}).
+                    </p>
+                    <div className="conflict-suggestions">
+                      <span className="suggestion-lbl">Sugestão de horários livres:</span>
+                      <div className="suggestion-buttons-row">
+                        <button 
+                          type="button" 
+                          className="btn-suggestion-time"
+                          onClick={() => setModalHora('11:00')}
+                        >
+                          11:00
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn-suggestion-time"
+                          onClick={() => setModalHora('14:00')}
+                        >
+                          14:00
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn-suggestion-time"
+                          onClick={() => setModalHora('15:30')}
+                        >
+                          15:30
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn-suggestion-time"
+                          onClick={() => setModalHora('17:00')}
+                        >
+                          17:00
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {scheduleError && !conflictAppointment && (
+                <div className="alert alert-danger" style={{ margin: '10px 0' }}>
+                  <AlertTriangle size={16} />
+                  <span>{scheduleError}</span>
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Tipo de Atendimento</label>
@@ -803,22 +896,29 @@ export default function ClinicalCalendarView({
                 <button 
                   type="button" 
                   className="btn-cancel-flat"
-                  onClick={() => setShowScheduleModal(false)}
+                  onClick={() => {
+                    setShowScheduleModal(false);
+                    setScheduleError(null);
+                  }}
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit" 
-                  className="btn-primary"
-                  disabled={submitting || !modalPatientId}
+                  className={`btn-primary ${conflictAppointment ? 'btn-disabled-conflict' : ''}`}
+                  disabled={submitting || !modalPatientId || Boolean(conflictAppointment)}
+                  title={conflictAppointment ? 'Selecione um horário livre para continuar' : 'Confirmar agendamento'}
                 >
-                  {submitting ? 'Agendando...' : 'Confirmar Agendamento'}
+                  {conflictAppointment 
+                    ? 'Horário Ocupado ⚠️' 
+                    : (submitting ? 'Agendando...' : 'Confirmar Agendamento')}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
 
     </div>
   );

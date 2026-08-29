@@ -447,7 +447,31 @@ function loadDatabase(nutricionistaId) {
     if (!consultas || !Array.isArray(consultas)) {
       consultas = getInitialAppointments(nutricionistaId);
       localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(consultas));
+    } else {
+      // Sanitizar qualquer consulta que tenha ficado duplicada no mesmo horário
+      const occupiedTimes = new Set();
+      let consultasModified = false;
+      consultas = consultas.map(c => {
+        const d = new Date(c.data_consulta);
+        const timeKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+        if (occupiedTimes.has(timeKey)) {
+          consultasModified = true;
+          d.setHours(d.getHours() + 1);
+          d.setMinutes(d.getMinutes() + 15);
+          return {
+            ...c,
+            data_consulta: d.toISOString()
+          };
+        }
+        occupiedTimes.add(timeKey);
+        return c;
+      });
+
+      if (consultasModified) {
+        localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(consultas));
+      }
     }
+
 
     return {
       pacientes: pacientes.filter(p => p.nutricionista_id === nutricionistaId || !p.nutricionista_id),
@@ -907,8 +931,45 @@ export async function excluirPaciente(pacienteId, nutricionistaId) {
   return true;
 }
 
-export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, tipo }, nutricionistaId) {
+/**
+ * Verifica se já existe consulta agendada para a data/horário selecionados
+ * (Janela de conflito de 40 minutos para evitar sobreposição)
+ */
+export async function verificarConflitoHorario(dataConsultaIso, nutricionistaId, ignoreConsultaId = null) {
   const { consultas } = loadDatabase(nutricionistaId);
+  const targetDate = new Date(dataConsultaIso);
+  const targetTime = targetDate.getTime();
+  const DURATION_MS = 40 * 60 * 1000; // 40 minutos
+
+  const conflito = consultas.find(c => {
+    if (ignoreConsultaId && c.id === ignoreConsultaId) return false;
+    if (c.status === 'cancelada') return false;
+
+    const cDate = new Date(c.data_consulta);
+    const cTime = cDate.getTime();
+
+    // Mesma data e horário ou sobreposição < 40 minutos
+    const diffMs = Math.abs(targetTime - cTime);
+    return diffMs < DURATION_MS;
+  });
+
+  return conflito || null;
+}
+
+export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, tipo, forcarEncaixe = false }, nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+
+  // 1. Validação de Conflito de Horário
+  const conflito = await verificarConflitoHorario(dataConsulta, nutricionistaId);
+  if (conflito && !forcarEncaixe) {
+    const dConf = new Date(conflito.data_consulta);
+    const horaConf = dConf.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dataConf = dConf.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const erro = new Error(`Horário Ocupado: O paciente "${conflito.paciente_nome}" já está agendado para ${dataConf} às ${horaConf}.`);
+    erro.isConflict = true;
+    erro.conflito = conflito;
+    throw erro;
+  }
 
   const novaConsulta = {
     id: `cons_${Date.now()}`,
@@ -928,17 +989,24 @@ export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, 
 
 export async function agendarRetornoRapido(paciente, nutricionistaId) {
   const now = new Date();
-  const nextWeek = new Date(now);
-  nextWeek.setDate(now.getDate() + 3);
-  nextWeek.setHours(14, 0, 0, 0);
+  let nextDate = new Date(now);
+  nextDate.setDate(now.getDate() + 3);
+  nextDate.setHours(14, 0, 0, 0);
+
+  // Se 14:00 estiver ocupado, procurar próximo horário livre
+  let conflito = await verificarConflitoHorario(nextDate.toISOString(), nutricionistaId);
+  if (conflito) {
+    nextDate.setHours(15, 30, 0, 0);
+  }
 
   return agendarConsulta({
     pacienteId: paciente.id,
     pacienteNome: paciente.nome,
-    dataConsulta: nextWeek.toISOString(),
+    dataConsulta: nextDate.toISOString(),
     tipo: 'Retorno Agendado (Automático)'
   }, nutricionistaId);
 }
+
 
 /**
  * Adiciona um novo registro de evolução clínica e bioimpedância ao paciente

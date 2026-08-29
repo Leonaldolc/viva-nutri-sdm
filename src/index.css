@@ -6796,6 +6796,121 @@ body {
   color: var(--text-muted);
 }
 
+/* =========================================================================
+   ESTILOS DE ALERTA DE CONFLITO DE HORÁRIO (ANTI-DOUBLE BOOKING)
+   ========================================================================= */
+
+.alert-schedule-conflict {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  margin: 10px 0 14px 0;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .alert-schedule-conflict {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.conflict-icon-wrap {
+  color: #EF4444;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.conflict-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conflict-heading {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #EF4444;
+}
+
+[data-theme="dark"] .conflict-heading {
+  color: #F87171;
+}
+
+.conflict-desc {
+  font-size: 0.84rem;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .conflict-desc {
+  color: #F1F5F9;
+}
+
+.conflict-desc strong {
+  color: #EF4444;
+}
+
+[data-theme="dark"] .conflict-desc strong {
+  color: #FCA5A5;
+}
+
+.conflict-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(239, 68, 68, 0.25);
+}
+
+.suggestion-lbl {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .suggestion-lbl {
+  color: #CBD5E1;
+}
+
+.suggestion-buttons-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-suggestion-time {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--primary-purple-light);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-suggestion-time:hover {
+  background: var(--primary-purple);
+  color: white;
+}
+
+.input-error-border {
+  border-color: #EF4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.btn-disabled-conflict {
+  background: #64748B !important;
+  cursor: not-allowed !important;
+  opacity: 0.65;
+  box-shadow: none !important;
+}
+
+
 
 
 
