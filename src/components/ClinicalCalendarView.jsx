@@ -21,12 +21,18 @@ import {
   TrendingUp,
   Activity,
   Layers,
-  X
+  X,
+  Video,
+  MapPin,
+  UserCheck,
+  HelpCircle,
+  Link as LinkIcon
 } from 'lucide-react';
 import TodayAppointmentsWidget from './TodayAppointmentsWidget';
 import { 
   getTodasConsultas, 
   atualizarStatusConsulta, 
+  alternarConfirmacaoConsulta,
   desmarcarConsulta, 
   agendarConsulta 
 } from '../services/dashboardService';
@@ -41,7 +47,7 @@ export default function ClinicalCalendarView({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [consultas, setConsultas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('todos'); // 'todos' | 'confirmada' | 'agendada' | 'realizada'
+  const [statusFilter, setStatusFilter] = useState('todos'); // 'todos' | 'confirmado' | 'pendente' | 'presencial' | 'online' | 'realizada'
   
   // Modal de Agendamento Rápido
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -50,6 +56,9 @@ export default function ClinicalCalendarView({
   const [modalHora, setModalHora] = useState('10:00');
   const [modalData, setModalData] = useState(new Date().toISOString().split('T')[0]);
   const [modalTipo, setModalTipo] = useState('Consulta de Retorno');
+  const [modalModalidade, setModalModalidade] = useState('presencial'); // 'presencial' | 'online'
+  const [modalLinkTeleconsulta, setModalLinkTeleconsulta] = useState('');
+  const [modalConfirmacao, setModalConfirmacao] = useState('confirmado'); // 'confirmado' | 'pendente'
   const [submitting, setSubmitting] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState(null); // Dia clicado na visão de mês
   const [scheduleError, setScheduleError] = useState(null);
@@ -121,7 +130,12 @@ export default function ClinicalCalendarView({
   // Filtragem de Consultas
   const filteredConsultas = useMemo(() => {
     if (statusFilter === 'todos') return consultas;
-    return consultas.filter(c => c.status === statusFilter);
+    if (statusFilter === 'confirmado') return consultas.filter(c => c.confirmacao === 'confirmado');
+    if (statusFilter === 'pendente') return consultas.filter(c => c.confirmacao === 'pendente');
+    if (statusFilter === 'presencial') return consultas.filter(c => c.modalidade === 'presencial');
+    if (statusFilter === 'online') return consultas.filter(c => c.modalidade === 'online');
+    if (statusFilter === 'realizada') return consultas.filter(c => c.status === 'realizada');
+    return consultas;
   }, [consultas, statusFilter]);
 
   // Consultas de Hoje
@@ -135,6 +149,7 @@ export default function ClinicalCalendarView({
              c.status !== 'cancelada';
     }).sort((a, b) => new Date(a.data_consulta) - new Date(b.data_consulta));
   }, [consultas]);
+
 
 
   // ----------------------------------------------------
@@ -250,6 +265,7 @@ export default function ClinicalCalendarView({
 
   // Salvar Novo Agendamento
   const handleAgendarSubmit = async (e) => {
+
     e.preventDefault();
     if (!modalPatientId || !modalData || !modalHora) return;
 
@@ -270,7 +286,10 @@ export default function ClinicalCalendarView({
         pacienteId: modalPatientId,
         pacienteNome: paciente?.nome || 'Paciente',
         dataConsulta: dataFull.toISOString(),
-        tipo: modalTipo
+        tipo: modalTipo,
+        modalidade: modalModalidade,
+        linkTeleconsulta: modalLinkTeleconsulta,
+        confirmacao: modalConfirmacao
       }, nutricionistaId);
 
       setShowScheduleModal(false);
@@ -288,12 +307,25 @@ export default function ClinicalCalendarView({
   const handleOpenScheduleForDate = (isoDate) => {
     setModalData(isoDate || new Date().toISOString().split('T')[0]);
     setScheduleError(null);
+    setModalModalidade('presencial');
+    setModalLinkTeleconsulta('');
+    setModalConfirmacao('confirmado');
     if (pacientes.length > 0 && !modalPatientId) {
       setModalPatientId(pacientes[0].id);
     }
     setShowScheduleModal(true);
   };
 
+  const handleToggleConfirmacao = async (consultaId, e) => {
+    e.stopPropagation();
+    try {
+      await alternarConfirmacaoConsulta(consultaId, nutricionistaId);
+      loadConsultas();
+      if (onRefreshParent) onRefreshParent();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleToggleConcluida = async (consultaId, currentStatus, e) => {
     e.stopPropagation();
@@ -357,7 +389,7 @@ export default function ClinicalCalendarView({
           </div>
           <h1 className="calendar-main-title">Planejamento de Atendimentos</h1>
           <p className="calendar-subtitle">
-            Gerencie seus horários por dia, semana e mês com sincronização em tempo real.
+            Gerencie seus horários por dia, semana e mês com confirmação de presença e modalidade presencial/online.
           </p>
         </div>
 
@@ -431,16 +463,18 @@ export default function ClinicalCalendarView({
         </div>
 
         <div className="view-mode-and-filter">
-          {/* Filtro por Status */}
+          {/* Filtro por Status e Modalidade */}
           <div className="filter-select-wrapper">
             <select 
               className="calendar-status-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="todos">Todos os Status</option>
-              <option value="confirmada">🟢 Confirmadas</option>
-              <option value="agendada">🟡 Agendadas</option>
+              <option value="todos">Todos os Agendamentos</option>
+              <option value="confirmado">🟢 Presença Confirmada</option>
+              <option value="pendente">🟡 Aguardando Confirmação</option>
+              <option value="presencial">📍 Somente Presencial</option>
+              <option value="online">💻 Somente Online (Teleconsulta)</option>
               <option value="realizada">✓ Realizadas</option>
             </select>
           </div>
@@ -523,12 +557,13 @@ export default function ClinicalCalendarView({
                 {day.appointments.length > 0 ? (
                   day.appointments.map((appt) => {
                     const isRealizada = appt.status === 'realizada';
-                    const isConfirmada = appt.status === 'confirmada';
+                    const isConfirmado = appt.confirmacao === 'confirmado';
+                    const isOnline = appt.modalidade === 'online';
 
                     return (
                       <div 
                         key={appt.id} 
-                        className={`week-appointment-card ${isRealizada ? 'appt-realizada' : ''} ${isConfirmada ? 'appt-confirmada' : ''}`}
+                        className={`week-appointment-card ${isRealizada ? 'appt-realizada' : ''} ${isConfirmado ? 'appt-confirmed-card' : 'appt-pending-card'}`}
                         onClick={() => {
                           const p = pacientes.find(item => item.id === appt.paciente_id) || { id: appt.paciente_id, nome: appt.paciente_nome };
                           if (onSelectPatient) onSelectPatient(p);
@@ -540,7 +575,11 @@ export default function ClinicalCalendarView({
                           <span className="appt-time-badge">
                             <Clock size={11} /> {formatTime(appt.data_consulta)}
                           </span>
-                          <span className={`appt-status-dot dot-${appt.status || 'agendada'}`} />
+                          
+                          {/* Badge de Modalidade (Presencial vs Online) */}
+                          <span className={`badge-card-modalidade ${isOnline ? 'mod-online' : 'mod-presencial'}`} title={isOnline ? 'Teleconsulta Online por Vídeo' : 'Atendimento Presencial no Consultório'}>
+                            {isOnline ? <><Video size={10} /> Online</> : <><MapPin size={10} /> Presencial</>}
+                          </span>
                         </div>
 
                         <h4 className="appt-patient-name" title={appt.paciente_nome}>
@@ -551,14 +590,42 @@ export default function ClinicalCalendarView({
                           {appt.tipo || 'Consulta'}
                         </span>
 
+                        {/* Status de Confirmação do Paciente */}
+                        <div className="appt-confirmation-row" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            type="button" 
+                            className={`btn-pill-confirm ${isConfirmado ? 'pill-conf-yes' : 'pill-conf-no'}`}
+                            onClick={(e) => handleToggleConfirmacao(appt.id, e)}
+                            title={isConfirmado ? 'Presença confirmada pelo paciente. Clique para mudar.' : 'Aguardando confirmação do paciente. Clique para confirmar.'}
+                          >
+                            {isConfirmado ? (
+                              <><UserCheck size={11} /> Confirmado</>
+                            ) : (
+                              <><HelpCircle size={11} /> Aguardando</>
+                            )}
+                          </button>
+                        </div>
+
                         <div className="appt-card-actions" onClick={(e) => e.stopPropagation()}>
+                          {isOnline && appt.linkTeleconsulta && (
+                            <a 
+                              href={appt.linkTeleconsulta}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-mini-action btn-mini-video"
+                              title="Abrir sala de Teleconsulta"
+                            >
+                              <Video size={12} />
+                            </a>
+                          )}
+
                           {appt.paciente_telefone && (
                             <a 
-                              href={`https://wa.me/55${appt.paciente_telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${appt.paciente_nome.split(' ')[0]}! Confirmando sua consulta nutricional no dia ${day.dayNumber}/${day.monthName} às ${formatTime(appt.data_consulta)} 🥗`)}`}
+                              href={`https://wa.me/55${appt.paciente_telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${appt.paciente_nome.split(' ')[0]}! Tudo bem? Passando para confirmar sua consulta nutricional no dia ${day.dayNumber}/${day.monthName} às ${formatTime(appt.data_consulta)} (${isOnline ? 'Online por Vídeo' : 'Presencial no Consultório'}). Poderia confirmar sua presença respondendo 'CONFIRMO'? 🥗✨`)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="btn-mini-action btn-mini-wa"
-                              title="Enviar WhatsApp"
+                              title="Pedir confirmação no WhatsApp"
                             >
                               <MessageCircle size={12} />
                             </a>
@@ -645,8 +712,8 @@ export default function ClinicalCalendarView({
                     {cell.appointments.slice(0, 2).map((a) => (
                       <div 
                         key={a.id} 
-                        className={`mini-month-appt-tag tag-${a.status || 'agendada'}`}
-                        title={`${formatTime(a.data_consulta)} - ${a.paciente_nome}`}
+                        className={`mini-month-appt-tag tag-${a.confirmacao === 'confirmado' ? 'confirmada' : 'agendada'}`}
+                        title={`${formatTime(a.data_consulta)} - ${a.paciente_nome} (${a.modalidade === 'online' ? 'Online' : 'Presencial'}) [${a.confirmacao === 'confirmado' ? 'Confirmado' : 'Aguardando'}]`}
                         onClick={(e) => {
                           e.stopPropagation();
                           const p = pacientes.find(item => item.id === a.paciente_id) || { id: a.paciente_id, nome: a.paciente_nome };
@@ -654,7 +721,10 @@ export default function ClinicalCalendarView({
                         }}
                       >
                         <span className="mini-tag-time">{formatTime(a.data_consulta)}</span>
-                        <span className="mini-tag-name">{a.paciente_nome.split(' ')[0]}</span>
+                        <span className="mini-tag-name">
+                          {a.modalidade === 'online' ? '💻 ' : '📍 '}
+                          {a.paciente_nome.split(' ')[0]}
+                        </span>
                       </div>
                     ))}
                     {cell.appointments.length > 2 && (
@@ -714,10 +784,23 @@ export default function ClinicalCalendarView({
                         <strong>{formatTime(a.data_consulta)}</strong>
                       </div>
                       <div className="day-modal-patient">
-                        <h4>{a.paciente_nome}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <h4>{a.paciente_nome}</h4>
+                          <span className={`badge-card-modalidade ${a.modalidade === 'online' ? 'mod-online' : 'mod-presencial'}`}>
+                            {a.modalidade === 'online' ? '💻 Online' : '📍 Presencial'}
+                          </span>
+                        </div>
                         <span>{a.tipo || 'Consulta de Retorno'}</span>
                       </div>
                       <div className="day-modal-actions">
+                        <button 
+                          type="button" 
+                          className={`btn-pill-confirm ${a.confirmacao === 'confirmado' ? 'pill-conf-yes' : 'pill-conf-no'}`}
+                          onClick={(e) => handleToggleConfirmacao(a.id, e)}
+                        >
+                          {a.confirmacao === 'confirmado' ? '✓ Confirmado' : '⏱️ Pendente'}
+                        </button>
+
                         <button 
                           type="button"
                           className="btn-primary-action btn-sm"
@@ -762,13 +845,13 @@ export default function ClinicalCalendarView({
       {/* Modal de Novo Agendamento */}
       {showScheduleModal && (
         <div className="modal-backdrop" onClick={() => setShowScheduleModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div className="modal-icon-badge icon-purple"><CalendarPlus size={20} /></div>
                 <div>
                   <h3 className="modal-title">Agendar Nova Consulta</h3>
-                  <p className="modal-subtitle">Defina o paciente, horário e objetivo do atendimento.</p>
+                  <p className="modal-subtitle">Defina o paciente, horário, modalidade e confirmação.</p>
                 </div>
               </div>
               <button className="btn-modal-close" onClick={() => setShowScheduleModal(false)}>
@@ -892,6 +975,72 @@ export default function ClinicalCalendarView({
                 </select>
               </div>
 
+              {/* SELEÇÃO DE MODALIDADE: PRESENCIAL VS ONLINE */}
+              <div className="form-group">
+                <label className="form-label">Modalidade de Atendimento *</label>
+                <div className="modality-segmented-control">
+                  <button 
+                    type="button"
+                    className={`btn-modality-opt ${modalModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setModalModalidade('presencial')}
+                  >
+                    <MapPin size={16} />
+                    <span>Presencial (Consultório)</span>
+                  </button>
+
+                  <button 
+                    type="button"
+                    className={`btn-modality-opt ${modalModalidade === 'online' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setModalModalidade('online')}
+                  >
+                    <Video size={16} />
+                    <span>Online (Teleconsulta)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* CAMPO DE LINK PARA TELECONSULTA */}
+              {modalModalidade === 'online' && (
+                <div className="form-group animated-fade-in">
+                  <label className="form-label">Link da Sala de Vídeo (Google Meet / Zoom / WhatsApp)</label>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="url"
+                      className="form-input"
+                      style={{ paddingLeft: '36px' }}
+                      placeholder="https://meet.google.com/abc-defg-hij"
+                      value={modalLinkTeleconsulta}
+                      onChange={(e) => setModalLinkTeleconsulta(e.target.value)}
+                    />
+                    <LinkIcon size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  </div>
+                </div>
+              )}
+
+              {/* STATUS DE CONFIRMAÇÃO DO PACIENTE */}
+              <div className="form-group">
+                <label className="form-label">Status Inicial de Confirmação</label>
+                <div className="confirmation-segmented-control">
+                  <button 
+                    type="button"
+                    className={`btn-conf-opt ${modalConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
+                    onClick={() => setModalConfirmacao('confirmado')}
+                  >
+                    <UserCheck size={16} />
+                    <span>Já Confirmado pelo Paciente</span>
+                  </button>
+
+                  <button 
+                    type="button"
+                    className={`btn-conf-opt ${modalConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
+                    onClick={() => setModalConfirmacao('pendente')}
+                  >
+                    <HelpCircle size={16} />
+                    <span>Aguardando Confirmação</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="modal-footer" style={{ padding: '16px 0 0 0', borderTop: '1px solid var(--card-border)' }}>
                 <button 
                   type="button" 
@@ -918,6 +1067,7 @@ export default function ClinicalCalendarView({
           </div>
         </div>
       )}
+
 
 
     </div>

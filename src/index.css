@@ -6910,6 +6910,275 @@ body {
   box-shadow: none !important;
 }
 
+/* =========================================================================
+   ESTILOS DE MODALIDADE (PRESENCIAL / ONLINE) E CONFIRMAÇÃO DE CONSULTA
+   ========================================================================= */
+
+/* Badges de Modalidade nos Cards e Banner */
+.badge-modalidade-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.pill-presencial {
+  background: rgba(124, 58, 237, 0.15);
+  color: var(--primary-purple-light);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.pill-online {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60A5FA;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.badge-conf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.pill-conf-ok {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.pill-conf-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.btn-today-video {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: #3B82F6;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transition: transform var(--transition-fast);
+}
+
+.btn-today-video:hover {
+  transform: translateY(-1px);
+}
+
+.slot-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.slot-meta-divider {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.slot-modalidade-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tag-presencial {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--primary-purple-light);
+}
+
+.tag-online {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60A5FA;
+}
+
+/* Botão Toggle de Confirmação na Linha do Dia */
+.btn-toggle-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.btn-toggle-conf.conf-ok {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.btn-toggle-conf.conf-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.btn-toggle-conf:hover {
+  transform: scale(1.03);
+}
+
+.btn-slot-meet {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3B82F6;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.btn-slot-meet:hover {
+  background: #3B82F6 !important;
+  color: white !important;
+}
+
+/* Badges nos Cards da Grade Semanal */
+.badge-card-modalidade {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.mod-presencial {
+  background: rgba(124, 58, 237, 0.15);
+  color: var(--primary-purple-light);
+}
+
+.mod-online {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60A5FA;
+}
+
+.appt-confirmation-row {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.btn-pill-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.pill-conf-yes {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.pill-conf-no {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.pill-conf-yes:hover, .pill-conf-no:hover {
+  transform: translateY(-1px);
+}
+
+.appt-confirmed-card {
+  border-left: 3px solid #10B981 !important;
+}
+
+.appt-pending-card {
+  border-left: 3px solid #F59E0B !important;
+}
+
+.btn-mini-video {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3B82F6;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.btn-mini-video:hover {
+  background: #3B82F6;
+  color: white;
+  border-color: #3B82F6;
+}
+
+/* Controles Segmentados no Modal de Agendamento */
+.modality-segmented-control, .confirmation-segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--input-bg);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+}
+
+[data-theme="dark"] .modality-segmented-control, 
+[data-theme="dark"] .confirmation-segmented-control {
+  background: rgba(10, 15, 29, 0.75);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.btn-modality-opt, .btn-conf-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mod-opt-active {
+  background: var(--primary-purple) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+
+.conf-opt-yes {
+  background: #10B981 !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.conf-opt-pending {
+  background: #F59E0B !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+
+
 
 
 

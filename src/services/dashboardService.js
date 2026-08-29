@@ -295,6 +295,8 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'lucas.fontes@email.com',
       data_consulta: getTodayAtHour(9, 0),
       status: 'confirmada',
+      confirmacao: 'confirmado',
+      modalidade: 'presencial',
       tipo: 'Bioimpedância & Ajuste de Carga'
     },
     {
@@ -306,6 +308,9 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'mariana.silveira@email.com',
       data_consulta: getTodayAtHour(11, 0),
       status: 'confirmada',
+      confirmacao: 'confirmado',
+      modalidade: 'online',
+      linkTeleconsulta: 'https://meet.google.com/viva-nutri-tele',
       tipo: 'Consulta de Retorno & Cardápio'
     },
     {
@@ -317,6 +322,8 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'fernanda.rocha@email.com',
       data_consulta: getTodayAtHour(14, 30),
       status: 'agendada',
+      confirmacao: 'pendente',
+      modalidade: 'presencial',
       tipo: 'Acompanhamento Saúde Intestinal'
     },
     {
@@ -328,6 +335,9 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'rodrigo.g@email.com',
       data_consulta: getTodayAtHour(16, 30),
       status: 'agendada',
+      confirmacao: 'pendente',
+      modalidade: 'online',
+      linkTeleconsulta: 'https://meet.google.com/viva-nutri-tele',
       tipo: 'Revisão Calórica & Treino'
     },
     // Consultas nos dias anteriores e posteriores do MÊS ATUAL
@@ -340,6 +350,8 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'carlos.mendes@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 4, 10, 0).toISOString(),
       status: 'realizada',
+      confirmacao: 'confirmado',
+      modalidade: 'presencial',
       tipo: 'Avaliação Inicial de Glicemia'
     },
     {
@@ -351,6 +363,9 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'camila.vasc@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 15, 0).toISOString(),
       status: 'realizada',
+      confirmacao: 'confirmado',
+      modalidade: 'online',
+      linkTeleconsulta: 'https://meet.google.com/viva-nutri-tele',
       tipo: 'Revisão Pós-Parto'
     },
     {
@@ -362,6 +377,8 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'juliana.costa@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 10, 30).toISOString(),
       status: 'confirmada',
+      confirmacao: 'confirmado',
+      modalidade: 'presencial',
       tipo: 'Avaliação Perfil Lipídico'
     },
     {
@@ -373,6 +390,9 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'beatriz.almeida@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 4, 14, 0).toISOString(),
       status: 'agendada',
+      confirmacao: 'pendente',
+      modalidade: 'online',
+      linkTeleconsulta: 'https://meet.google.com/viva-nutri-tele',
       tipo: 'Reeducação Alimentar'
     },
     {
@@ -384,6 +404,8 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'lucas.fontes@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 16, 0).toISOString(),
       status: 'agendada',
+      confirmacao: 'confirmado',
+      modalidade: 'presencial',
       tipo: 'Hipertrofia & Suplementação'
     },
     {
@@ -395,6 +417,8 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'mariana.silveira@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11, 9, 30).toISOString(),
       status: 'agendada',
+      confirmacao: 'pendente',
+      modalidade: 'presencial',
       tipo: 'Bioimpedância Mensal'
     },
     {
@@ -406,10 +430,14 @@ function getInitialAppointments(nutricionistaId) {
       paciente_email: 'fernanda.rocha@email.com',
       data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 15, 11, 0).toISOString(),
       status: 'agendada',
+      confirmacao: 'pendente',
+      modalidade: 'online',
+      linkTeleconsulta: 'https://meet.google.com/viva-nutri-tele',
       tipo: 'FODMAP Fase 2'
     }
   ];
 }
+
 
 
 
@@ -448,29 +476,42 @@ function loadDatabase(nutricionistaId) {
       consultas = getInitialAppointments(nutricionistaId);
       localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(consultas));
     } else {
-      // Sanitizar qualquer consulta que tenha ficado duplicada no mesmo horário
+      // Sanitizar consultas duplicadas e enriquecer modalidade / confirmação
       const occupiedTimes = new Set();
       let consultasModified = false;
       consultas = consultas.map(c => {
         const d = new Date(c.data_consulta);
         const timeKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+        let finalData = c.data_consulta;
         if (occupiedTimes.has(timeKey)) {
           consultasModified = true;
           d.setHours(d.getHours() + 1);
           d.setMinutes(d.getMinutes() + 15);
-          return {
-            ...c,
-            data_consulta: d.toISOString()
-          };
+          finalData = d.toISOString();
         }
         occupiedTimes.add(timeKey);
-        return c;
+
+        const modalidade = c.modalidade || (c.tipo?.toLowerCase().includes('tele') || c.tipo?.toLowerCase().includes('online') ? 'online' : 'presencial');
+        const confirmacao = c.confirmacao || (c.status === 'confirmada' ? 'confirmado' : 'pendente');
+
+        if (!c.modalidade || !c.confirmacao) {
+          consultasModified = true;
+        }
+
+        return {
+          ...c,
+          data_consulta: finalData,
+          modalidade,
+          confirmacao,
+          linkTeleconsulta: c.linkTeleconsulta || (modalidade === 'online' ? 'https://meet.google.com/viva-nutri-tele' : '')
+        };
       });
 
       if (consultasModified) {
         localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(consultas));
       }
     }
+
 
 
     return {
@@ -956,7 +997,16 @@ export async function verificarConflitoHorario(dataConsultaIso, nutricionistaId,
   return conflito || null;
 }
 
-export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, tipo, forcarEncaixe = false }, nutricionistaId) {
+export async function agendarConsulta({ 
+  pacienteId, 
+  pacienteNome, 
+  dataConsulta, 
+  tipo, 
+  modalidade = 'presencial', 
+  linkTeleconsulta = '', 
+  confirmacao = 'pendente',
+  forcarEncaixe = false 
+}, nutricionistaId) {
   const { consultas } = loadDatabase(nutricionistaId);
 
   // 1. Validação de Conflito de Horário
@@ -978,6 +1028,9 @@ export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, 
     paciente_nome: pacienteNome,
     data_consulta: dataConsulta,
     status: 'agendada',
+    modalidade: modalidade || 'presencial',
+    linkTeleconsulta: linkTeleconsulta || '',
+    confirmacao: confirmacao || 'pendente',
     tipo: tipo || 'Consulta de Retorno'
   };
 
@@ -986,6 +1039,28 @@ export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, 
   notifyDatabaseChange();
   return novaConsulta;
 }
+
+/**
+ * Alterna o status de confirmação da consulta (ex: 'pendente' <-> 'confirmado')
+ */
+export async function alternarConfirmacaoConsulta(consultaId, nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+  const updated = consultas.map(c => {
+    if (c.id === consultaId) {
+      const proximo = c.confirmacao === 'confirmado' ? 'pendente' : 'confirmado';
+      return {
+        ...c,
+        confirmacao: proximo,
+        status: proximo === 'confirmado' ? 'confirmada' : c.status
+      };
+    }
+    return c;
+  });
+  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return updated.find(c => c.id === consultaId);
+}
+
 
 export async function agendarRetornoRapido(paciente, nutricionistaId) {
   const now = new Date();
