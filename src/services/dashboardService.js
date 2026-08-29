@@ -1223,3 +1223,133 @@ export async function removerArquivoPaciente(pacienteId, anexoId, nutricionistaI
   notifyDatabaseChange();
   return updated.find(p => p.id === pacienteId);
 }
+
+/**
+ * Retorna os planos alimentares de um paciente
+ */
+export async function getPlanosAlimentares(pacienteId, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+  const p = pacientes.find(item => item.id === pacienteId);
+  if (!p) return [];
+  return Array.isArray(p.planosAlimentares) ? p.planosAlimentares : [];
+}
+
+/**
+ * Salva um novo plano alimentar para o paciente
+ */
+export async function salvarPlanoAlimentar(pacienteId, planoData, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+  const now = new Date().toISOString();
+
+  const novoPlano = {
+    id: `plano_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+    titulo: planoData.titulo || 'Plano Nutricional Individualizado',
+    dataGeracao: planoData.dataGeracao || now,
+    caloriasTotais: Number(planoData.caloriasTotais) || 1800,
+    macros: planoData.macros || { proteina: '120g', gordura: '50g', carboidrato: '200g' },
+    refeicoes: planoData.refeicoes || [
+      { horario: '07:30', nome: 'Café da Manhã', alimentos: '2 ovos mexidos, 1 fatia de pão integral, 1 fruta' },
+      { horario: '12:30', nome: 'Almoço', alimentos: '150g de proteína magra, 120g arroz/tubérculo, legumes e salada' },
+      { horario: '16:30', nome: 'Lanche da Tarde', alimentos: 'Iogurte com aveia e frutas vermelhas' },
+      { horario: '20:00', nome: 'Jantar', alimentos: '140g de peixe ou frango com vegetais cozidos' }
+    ],
+    orientacoesGerais: planoData.orientacoesGerais || 'Manter boa ingestão hídrica ao longo de todo o dia.',
+    created_at: now
+  };
+
+  const updated = pacientes.map(p => {
+    if (p.id !== pacienteId) return p;
+    const listaAtual = Array.isArray(p.planosAlimentares) ? p.planosAlimentares : [];
+    return {
+      ...p,
+      planosAlimentares: [novoPlano, ...listaAtual]
+    };
+  });
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return { novoPlano, pacienteAtualizado: updated.find(p => p.id === pacienteId) };
+}
+
+/**
+ * Remove um plano alimentar
+ */
+export async function removerPlanoAlimentar(pacienteId, planoId, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+
+  const updated = pacientes.map(p => {
+    if (p.id !== pacienteId) return p;
+    const listaFiltrada = (p.planosAlimentares || []).filter(pl => pl.id !== planoId);
+    return {
+      ...p,
+      planosAlimentares: listaFiltrada
+    };
+  });
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return updated.find(p => p.id === pacienteId);
+}
+
+/**
+ * Registra uma nova consulta clínica completa com evolução (data, peso, cintura, quadril, % gordura, obs, retorno)
+ */
+export async function registrarConsultaCompleta(pacienteId, dadosConsulta, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+  const dataConsultaIso = dadosConsulta.data ? new Date(dadosConsulta.data).toISOString() : new Date().toISOString();
+
+  let novoRetornoAgendado = null;
+  if (dadosConsulta.proximoRetorno) {
+    const dataRetornoIso = new Date(dadosConsulta.proximoRetorno).toISOString();
+    const pacienteObj = pacientes.find(p => p.id === pacienteId);
+    if (pacienteObj) {
+      novoRetornoAgendado = await agendarConsulta({
+        pacienteId: pacienteId,
+        pacienteNome: pacienteObj.nome,
+        dataConsulta: dataRetornoIso,
+        tipo: 'Consulta de Retorno',
+        modalidade: dadosConsulta.modalidadeRetorno || 'presencial',
+        confirmacao: 'pendente'
+      }, nutricionistaId);
+    }
+  }
+
+  const updated = pacientes.map(p => {
+    if (p.id !== pacienteId) return p;
+
+    const novoRegistro = {
+      id: `ev_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      data: dataConsultaIso,
+      peso: Number(dadosConsulta.peso),
+      cintura: dadosConsulta.cintura ? Number(dadosConsulta.cintura) : (p.cinturaAtual || null),
+      quadril: dadosConsulta.quadril ? Number(dadosConsulta.quadril) : (p.quadrilAtual || null),
+      gordura: dadosConsulta.gordura ? Number(dadosConsulta.gordura) : (p.gorduraAtual || null),
+      massaMagra: dadosConsulta.massaMagra ? Number(dadosConsulta.massaMagra) : (p.massaMagraAtual || null),
+      notas: dadosConsulta.observacoes || dadosConsulta.notas || 'Consulta de acompanhamento registrada',
+      proximoRetorno: dadosConsulta.proximoRetorno || null
+    };
+
+    const historicoAtual = Array.isArray(p.historicoEvolucao) ? p.historicoEvolucao : [];
+    const novoHistorico = [...historicoAtual, novoRegistro].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    return {
+      ...p,
+      pesoAtual: Number(dadosConsulta.peso),
+      cinturaAtual: dadosConsulta.cintura ? Number(dadosConsulta.cintura) : p.cinturaAtual,
+      quadrilAtual: dadosConsulta.quadril ? Number(dadosConsulta.quadril) : p.quadrilAtual,
+      gorduraAtual: dadosConsulta.gordura ? Number(dadosConsulta.gordura) : p.gorduraAtual,
+      massaMagraAtual: dadosConsulta.massaMagra ? Number(dadosConsulta.massaMagra) : p.massaMagraAtual,
+      ultima_consulta: dataConsultaIso,
+      consultasTotais: (p.consultasTotais || 0) + 1,
+      historicoEvolucao: novoHistorico
+    };
+  });
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return {
+    pacienteAtualizado: updated.find(p => p.id === pacienteId),
+    retornoAgendado: novoRetornoAgendado
+  };
+}
+

@@ -1,31 +1,31 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { 
-  X, 
-  Calendar, 
-  Phone, 
-  Mail, 
-  User, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle, 
-  Plus, 
-  FileText, 
-  TrendingDown, 
-  TrendingUp, 
-  Activity, 
-  Scale, 
-  Percent, 
-  Flame, 
-  LineChart, 
-  CalendarPlus, 
-  PlusCircle, 
-  Sparkles, 
-  Edit3, 
-  Save, 
-  Trash2, 
-  Coffee, 
-  Droplet, 
-  HeartPulse, 
+import {
+  X,
+  Calendar,
+  Phone,
+  Mail,
+  User,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  Plus,
+  FileText,
+  TrendingDown,
+  TrendingUp,
+  Activity,
+  Scale,
+  Percent,
+  Flame,
+  LineChart,
+  CalendarPlus,
+  PlusCircle,
+  Sparkles,
+  Edit3,
+  Save,
+  Trash2,
+  Coffee,
+  Droplet,
+  HeartPulse,
   Check,
   Paperclip,
   UploadCloud,
@@ -43,16 +43,19 @@ import {
   HelpCircle,
   Calculator,
   Utensils,
+  UtensilsCrossed,
+  BookOpen,
+  ChevronRight,
   MessageCircle,
   Copy,
   RotateCcw,
   CalendarDays,
   Link as LinkIcon
 } from 'lucide-react';
-import { 
-  agendarConsulta, 
-  adicionarMedicaoEvolucao, 
-  atualizarPaciente, 
+import {
+  agendarConsulta,
+  adicionarMedicaoEvolucao,
+  atualizarPaciente,
   excluirPaciente,
   anexarArquivoPaciente,
   removerArquivoPaciente,
@@ -61,14 +64,18 @@ import {
   alternarConfirmacaoConsulta,
   desmarcarConsulta,
   verificarConflitoHorario,
-  atualizarStatusConsulta
+  atualizarStatusConsulta,
+  getPlanosAlimentares,
+  salvarPlanoAlimentar,
+  removerPlanoAlimentar,
+  registrarConsultaCompleta
 } from '../services/dashboardService';
 
-export default function PatientProfileModal({ 
-  paciente, 
-  onClose, 
-  onActionSuccess, 
-  nutricionistaId 
+export default function PatientProfileModal({
+  paciente,
+  onClose,
+  onActionSuccess,
+  nutricionistaId
 }) {
   const [activeTab, setActiveTab] = useState('evolucao'); // 'evolucao' | 'prontuario' | 'anexos' | 'consultas' | 'calculadora' | 'nova-medicao'
   const [selectedMetric, setSelectedMetric] = useState('peso'); // 'peso' | 'gordura' | 'massaMagra' | 'cintura' | 'adesao'
@@ -82,7 +89,7 @@ export default function PatientProfileModal({
   // ----------------------------------------------------
   const [consultasPaciente, setConsultasPaciente] = useState([]);
   const [loadingConsultas, setLoadingConsultas] = useState(false);
-  
+
   // Edição de consulta existente
   const [editingConsultaId, setEditingConsultaId] = useState(null);
   const [editConsultaData, setEditConsultaData] = useState('');
@@ -130,7 +137,7 @@ export default function PatientProfileModal({
   const [editTelefone, setEditTelefone] = useState(paciente?.telefone || '');
   const [editWhatsapp, setEditWhatsapp] = useState(paciente?.whatsapp || paciente?.telefone || '');
   const [editEmail, setEditEmail] = useState(paciente?.email || '');
-  
+
   const [editPeso, setEditPeso] = useState(paciente?.pesoAtual || '');
   const [editAltura, setEditAltura] = useState(paciente?.altura || 170);
   const [editObjetivo, setEditObjetivo] = useState(paciente?.objetivo || '');
@@ -165,13 +172,40 @@ export default function PatientProfileModal({
   const [previewingAnexo, setPreviewingAnexo] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Carregar consultas do paciente
+  // ----------------------------------------------------
+  // ESTADO PARA PLANOS ALIMENTARES (PROMPT 5)
+  // ----------------------------------------------------
+  const [planosList, setPlanosList] = useState(paciente?.planosAlimentares || []);
+  const [selectedPlano, setSelectedPlano] = useState(null);
+  const [showGerarPlanoModal, setShowGerarPlanoModal] = useState(false);
+  const [novoPlanoTitulo, setNovoPlanoTitulo] = useState('Plano Nutricional Individualizado');
+  const [novoPlanoCalorias, setNovoPlanoCalorias] = useState(1800);
+  const [novoPlanoProt, setNovoPlanoProt] = useState('130g');
+  const [novoPlanoGord, setNovoPlanoGord] = useState('50g');
+  const [novoPlanoCarb, setNovoPlanoCarb] = useState('190g');
+  const [novoPlanoObs, setNovoPlanoObs] = useState('Ingerir no mínimo 2.5L de água por dia. Evitar ultraprocessados.');
+
+  // ----------------------------------------------------
+  // ESTADO PARA NOVA CONSULTA (PROMPT 5 MODAL/FORM)
+  // ----------------------------------------------------
+  const [showNovaConsultaModal, setShowNovaConsultaModal] = useState(false);
+  const [ncData, setNcData] = useState(new Date().toISOString().split('T')[0]);
+  const [ncPeso, setNcPeso] = useState(paciente?.pesoAtual || '');
+  const [ncCintura, setNcCintura] = useState(paciente?.cinturaAtual || '');
+  const [ncQuadril, setNcQuadril] = useState(paciente?.quadrilAtual || '');
+  const [ncGordura, setNcGordura] = useState(paciente?.gorduraAtual || '');
+  const [ncObs, setNcObs] = useState('');
+  const [ncRetorno, setNcRetorno] = useState('');
+
+  // Carregar consultas e planos do paciente
   const carregarConsultasPaciente = async () => {
     if (!paciente?.id) return;
     setLoadingConsultas(true);
     try {
       const data = await getConsultasDoPaciente(paciente.id, nutricionistaId);
       setConsultasPaciente(data);
+      const planos = await getPlanosAlimentares(paciente.id, nutricionistaId);
+      if (planos && planos.length > 0) setPlanosList(planos);
     } catch (err) {
       console.error(err);
     } finally {
@@ -219,12 +253,12 @@ export default function PatientProfileModal({
 
   if (!paciente) return null;
 
-  const historico = paciente.historicoEvolucao && paciente.historicoEvolucao.length > 0 
-    ? paciente.historicoEvolucao 
+  const historico = paciente.historicoEvolucao && paciente.historicoEvolucao.length > 0
+    ? paciente.historicoEvolucao
     : [
-        { data: paciente.created_at || new Date().toISOString(), peso: paciente.pesoInicial || 75, gordura: paciente.gorduraInicial || 25, massaMagra: 30, cintura: 85, adesao: 80, notas: 'Consulta Inicial' },
-        { data: paciente.ultima_consulta || new Date().toISOString(), peso: paciente.pesoAtual || 72, gordura: paciente.gorduraAtual || 22, massaMagra: 31, cintura: 80, adesao: 90, notas: 'Acompanhamento' }
-      ];
+      { data: paciente.created_at || new Date().toISOString(), peso: paciente.pesoInicial || 75, gordura: paciente.gorduraInicial || 25, massaMagra: 30, cintura: 85, adesao: 80, notas: 'Consulta Inicial' },
+      { data: paciente.ultima_consulta || new Date().toISOString(), peso: paciente.pesoAtual || 72, gordura: paciente.gorduraAtual || 22, massaMagra: 31, cintura: 80, adesao: 90, notas: 'Acompanhamento' }
+    ];
 
   // Iniciar edição de uma consulta
   const handleStartEditConsulta = (consulta) => {
@@ -355,6 +389,90 @@ export default function PatientProfileModal({
       setErrorMsg(err.message || 'Erro ao agendar consulta.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ----------------------------------------------------
+  // SALVAR NOVA CONSULTA CLÍNICA COMPLETA (PROMPT 5)
+  // ----------------------------------------------------
+  const handleSalvarNovaConsulta = async (e) => {
+    e.preventDefault();
+    if (!ncPeso) {
+      setErrorMsg('O peso do paciente é obrigatório.');
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMsg('');
+    try {
+      await registrarConsultaCompleta(paciente.id, {
+        data: ncData,
+        peso: Number(ncPeso),
+        cintura: ncCintura ? Number(ncCintura) : null,
+        quadril: ncQuadril ? Number(ncQuadril) : null,
+        gordura: ncGordura ? Number(ncGordura) : null,
+        observacoes: ncObs.trim(),
+        proximoRetorno: ncRetorno || null
+      }, nutricionistaId);
+
+      setSuccessMsg('Consulta clínica e evolução salvas com sucesso!');
+      setShowNovaConsultaModal(false);
+      setNcObs('');
+      setNcRetorno('');
+      if (onActionSuccess) onActionSuccess();
+      await carregarConsultasPaciente();
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } catch (err) {
+      setErrorMsg(err.message || 'Erro ao registrar consulta.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ----------------------------------------------------
+  // GERAR / SALVAR NOVO PLANO ALIMENTAR (PROMPT 5)
+  // ----------------------------------------------------
+  const handleSalvarNovoPlano = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMsg('');
+    try {
+      const { novoPlano } = await salvarPlanoAlimentar(paciente.id, {
+        titulo: novoPlanoTitulo.trim() || 'Plano Nutricional Individualizado',
+        caloriasTotais: Number(novoPlanoCalorias) || 1800,
+        macros: {
+          proteina: novoPlanoProt,
+          gordura: novoPlanoGord,
+          carboidrato: novoPlanoCarb
+        },
+        orientacoesGerais: novoPlanoObs.trim()
+      }, nutricionistaId);
+
+      setPlanosList(prev => [novoPlano, ...prev]);
+      setSuccessMsg('Plano alimentar salvo no histórico com sucesso!');
+      setShowGerarPlanoModal(false);
+      if (onActionSuccess) onActionSuccess();
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } catch (err) {
+      setErrorMsg(err.message || 'Erro ao salvar plano alimentar.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoverPlano = async (planoId, e) => {
+    e.stopPropagation();
+    const conf = window.confirm('Deseja realmente remover este plano alimentar do histórico?');
+    if (!conf) return;
+
+    try {
+      await removerPlanoAlimentar(paciente.id, planoId, nutricionistaId);
+      setPlanosList(prev => prev.filter(p => p.id !== planoId));
+      setSuccessMsg('Plano alimentar removido.');
+      if (onActionSuccess) onActionSuccess();
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } catch (err) {
+      setErrorMsg('Erro ao remover plano alimentar.');
     }
   };
 
@@ -648,14 +766,14 @@ export default function PatientProfileModal({
     return i === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`;
   }, '');
 
-  const areaD = svgPoints.length > 0 
-    ? `${pathD} L ${svgPoints[svgPoints.length - 1].x},150 L ${svgPoints[0].x},150 Z` 
+  const areaD = svgPoints.length > 0
+    ? `${pathD} L ${svgPoints[svgPoints.length - 1].x},150 L ${svgPoints[0].x},150 Z`
     : '';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card patient-evolution-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        
+
         {/* Header do Paciente */}
         <header className="modal-header">
           <div className="patient-avatar-large">
@@ -691,26 +809,42 @@ export default function PatientProfileModal({
 
         {/* Abas de Navegação Interna do Modal */}
         <div className="modal-tab-bar">
-          <button 
+          <button
             type="button"
             className={`modal-tab-btn ${activeTab === 'evolucao' ? 'modal-tab-active' : ''}`}
             onClick={() => setActiveTab('evolucao')}
           >
             <LineChart size={16} />
-            <span>Evolução & Métricas</span>
+            <span>Consultas & Evolução</span>
+            {historicoConsultasDesc.length > 0 && (
+              <span className="tab-counter-badge">{historicoConsultasDesc.length}</span>
+            )}
           </button>
 
-          <button 
+          <button
             type="button"
             className={`modal-tab-btn ${activeTab === 'prontuario' ? 'modal-tab-active' : ''}`}
             onClick={() => setActiveTab('prontuario')}
           >
             <FileText size={16} />
-            <span>Prontuário (CRUD)</span>
+            <span>Dados do Paciente</span>
+          </button>
+
+          {/* NOVA ABA: PLANOS ALIMENTARES (PROMPT 5) */}
+          <button
+            type="button"
+            className={`modal-tab-btn ${activeTab === 'planos' ? 'modal-tab-active' : ''}`}
+            onClick={() => setActiveTab('planos')}
+          >
+            <UtensilsCrossed size={16} />
+            <span>Planos Alimentares</span>
+            {planosList.length > 0 && (
+              <span className="tab-counter-badge" style={{ background: '#10B981' }}>{planosList.length}</span>
+            )}
           </button>
 
           {/* ABA: ANEXOS & EXAMES */}
-          <button 
+          <button
             type="button"
             className={`modal-tab-btn ${activeTab === 'anexos' ? 'modal-tab-active' : ''}`}
             onClick={() => setActiveTab('anexos')}
@@ -722,21 +856,8 @@ export default function PatientProfileModal({
             )}
           </button>
 
-          {/* NOVA ABA: CONSULTAS & AGENDAMENTO (ALTERAÇÃO E CONFIRMAÇÃO) */}
-          <button 
-            type="button"
-            className={`modal-tab-btn ${activeTab === 'consultas' ? 'modal-tab-active' : ''}`}
-            onClick={() => setActiveTab('consultas')}
-          >
-            <CalendarPlus size={16} />
-            <span>Consultas & Agenda</span>
-            {consultasPaciente.length > 0 && (
-              <span className="tab-counter-badge" style={{ background: 'var(--primary-purple)' }}>{consultasPaciente.length}</span>
-            )}
-          </button>
-
-          {/* NOVA ABA: CALCULADORA & METAS (TMB/GET/MACROS) */}
-          <button 
+          {/* ABA: CALCULADORA & METAS (TMB/GET/MACROS) */}
+          <button
             type="button"
             className={`modal-tab-btn ${activeTab === 'calculadora' ? 'modal-tab-active' : ''}`}
             onClick={() => setActiveTab('calculadora')}
@@ -745,13 +866,17 @@ export default function PatientProfileModal({
             <span>Calculadora & Metas</span>
           </button>
 
-          <button 
+          {/* ABA: AGENDA & REAGENDAMENTO */}
+          <button
             type="button"
-            className={`modal-tab-btn ${activeTab === 'nova-medicao' ? 'modal-tab-active' : ''}`}
-            onClick={() => setActiveTab('nova-medicao')}
+            className={`modal-tab-btn ${activeTab === 'consultas' ? 'modal-tab-active' : ''}`}
+            onClick={() => setActiveTab('consultas')}
           >
-            <PlusCircle size={16} />
-            <span>Lançar Medição</span>
+            <CalendarPlus size={16} />
+            <span>Agenda & Retornos</span>
+            {consultasPaciente.length > 0 && (
+              <span className="tab-counter-badge" style={{ background: 'var(--primary-purple)' }}>{consultasPaciente.length}</span>
+            )}
           </button>
         </div>
 
@@ -843,28 +968,28 @@ export default function PatientProfileModal({
               <div className="chart-metric-selector">
                 <span className="selector-title">Visualizar Curva de Progresso:</span>
                 <div className="metric-pills">
-                  <button 
+                  <button
                     type="button"
                     className={`metric-pill ${selectedMetric === 'peso' ? 'metric-pill-active' : ''}`}
                     onClick={() => setSelectedMetric('peso')}
                   >
                     ⚖️ Peso (kg)
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className={`metric-pill ${selectedMetric === 'gordura' ? 'metric-pill-active' : ''}`}
                     onClick={() => setSelectedMetric('gordura')}
                   >
                     📉 Gordura (%)
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className={`metric-pill ${selectedMetric === 'massaMagra' ? 'metric-pill-active' : ''}`}
                     onClick={() => setSelectedMetric('massaMagra')}
                   >
                     💪 Massa Magra (kg)
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className={`metric-pill ${selectedMetric === 'cintura' ? 'metric-pill-active' : ''}`}
                     onClick={() => setSelectedMetric('cintura')}
@@ -897,13 +1022,13 @@ export default function PatientProfileModal({
                     {areaD && <path d={areaD} fill="url(#areaGradient)" />}
 
                     {pathD && (
-                      <path 
-                        d={pathD} 
-                        fill="none" 
-                        stroke={currentCfg.color} 
-                        strokeWidth="3.5" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
+                      <path
+                        d={pathD}
+                        fill="none"
+                        stroke={currentCfg.color}
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       />
                     )}
 
@@ -921,23 +1046,124 @@ export default function PatientProfileModal({
                   </svg>
                 </div>
               </div>
+
+              {/* SEÇÃO DE CONSULTAS CLÍNICAS (HISTÓRICO DECRESCENTE + BOTÃO NOVA CONSULTA - PROMPT 5) */}
+              <div className="patient-consultas-history-card" style={{ marginTop: '16px' }}>
+                <div className="consultas-history-header">
+                  <div>
+                    <h3 className="consultas-history-title">
+                      <Clock size={18} className="icon-purple" /> Histórico de Consultas & Avaliações ({historicoConsultasDesc.length})
+                    </h3>
+                    <p className="consultas-history-sub">
+                      Consultas clínicas registradas em ordem cronológica decrescente com bioimpedância e condutas.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setNcData(new Date().toISOString().split('T')[0]);
+                      setNcPeso(paciente?.pesoAtual || '');
+                      setNcCintura(paciente?.cinturaAtual || '');
+                      setNcQuadril(paciente?.quadrilAtual || '');
+                      setNcGordura(paciente?.gorduraAtual || '');
+                      setNcObs('');
+                      setNcRetorno('');
+                      setShowNovaConsultaModal(true);
+                    }}
+                  >
+                    <PlusCircle size={16} /> Nova Consulta
+                  </button>
+                </div>
+
+                {historicoConsultasDesc.length > 0 ? (
+                  <div className="consultas-history-list">
+                    {historicoConsultasDesc.map((c, idx) => {
+                      const d = new Date(c.data);
+                      const dataFormatada = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+                      return (
+                        <div key={c.id || idx} className="consulta-history-item animated-fade-in">
+                          <div className="consulta-item-top">
+                            <div className="consulta-date-wrap">
+                              <Calendar size={15} className="icon-purple" />
+                              <strong>{dataFormatada}</strong>
+                              {idx === 0 && <span className="badge-latest-pill">Mais Recente</span>}
+                            </div>
+                            {c.proximoRetorno && (
+                              <div className="consulta-next-return-badge">
+                                <Clock size={12} />
+                                <span>Próximo Retorno: {new Date(c.proximoRetorno).toLocaleDateString('pt-BR')}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="consulta-metrics-chips">
+                            <div className="metric-chip">
+                              <span className="chip-lbl">Peso:</span>
+                              <strong className="chip-val">{c.peso} kg</strong>
+                            </div>
+                            {c.gordura && (
+                              <div className="metric-chip">
+                                <span className="chip-lbl">% Gordura:</span>
+                                <strong className="chip-val">{c.gordura}%</strong>
+                              </div>
+                            )}
+                            {c.massaMagra && (
+                              <div className="metric-chip">
+                                <span className="chip-lbl">Massa Magra:</span>
+                                <strong className="chip-val">{c.massaMagra} kg</strong>
+                              </div>
+                            )}
+                            {c.cintura && (
+                              <div className="metric-chip">
+                                <span className="chip-lbl">Cintura:</span>
+                                <strong className="chip-val">{c.cintura} cm</strong>
+                              </div>
+                            )}
+                            {c.quadril && (
+                              <div className="metric-chip">
+                                <span className="chip-lbl">Quadril:</span>
+                                <strong className="chip-val">{c.quadril} cm</strong>
+                              </div>
+                            )}
+                          </div>
+
+                          {c.notas && (
+                            <div className="consulta-notes-box">
+                              <span className="notes-lbl">Conduta Nutricional / Observações:</span>
+                              <p className="notes-txt">"{c.notas}"</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="empty-consultas-state">
+                    <Calendar size={32} className="empty-icon-purple" />
+                    <h4>Nenhuma consulta registrada ainda</h4>
+                    <p>Clique no botão <strong>"Nova Consulta"</strong> acima para registrar a primeira consulta e iniciar o gráfico de evolução.</p>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
           {/* =========================================================================
-              ABA 2: PRONTUÁRIO COMPLETO & EDIÇÃO DIRETA (CRUD)
+              ABA 2: PRONTUÁRIO COMPLETO & EDIÇÃO DIRETA (CRUD) - DADOS DO PACIENTE
               ========================================================================= */}
           {activeTab === 'prontuario' && (
             <div className="prontuario-crud-tab animated-fade-in">
               <div className="crud-toolbar">
                 <div>
-                  <h3 className="crud-section-title">Prontuário Cadastral do Paciente</h3>
-                  <p className="crud-section-desc">Visualize e atualize diretamente todos os dados clínicos e hábitos.</p>
+                  <h3 className="crud-section-title">Dados do Paciente</h3>
+                  <p className="crud-section-desc">Visualize e atualize diretamente todos os dados pessoais, clínicos e hábitos.</p>
                 </div>
                 <div className="crud-actions-buttons">
                   {!isEditingProntuario ? (
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn-edit-mode"
                       onClick={() => setIsEditingProntuario(true)}
                     >
@@ -945,16 +1171,16 @@ export default function PatientProfileModal({
                       <span>Editar Dados</span>
                     </button>
                   ) : (
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn-cancel-edit"
                       onClick={() => setIsEditingProntuario(false)}
                     >
                       Cancelar Edição
                     </button>
                   )}
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn-delete-patient"
                     onClick={handleExcluirPaciente}
                     title="Excluir paciente permanentemente"
@@ -972,48 +1198,48 @@ export default function PatientProfileModal({
                     <div className="form-row grid-2">
                       <div className="form-group">
                         <label className="form-label">Nome Completo *</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editNome} 
-                          onChange={(e) => setEditNome(e.target.value)} 
-                          required 
+                          value={editNome}
+                          onChange={(e) => setEditNome(e.target.value)}
+                          required
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Data de Nascimento</label>
-                        <input 
-                          type="date" 
+                        <input
+                          type="date"
                           className="form-input"
-                          value={editDataNasc} 
-                          onChange={(e) => setEditDataNasc(e.target.value)} 
+                          value={editDataNasc}
+                          onChange={(e) => setEditDataNasc(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Telefone</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editTelefone} 
-                          onChange={(e) => setEditTelefone(e.target.value)} 
+                          value={editTelefone}
+                          onChange={(e) => setEditTelefone(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">WhatsApp</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editWhatsapp} 
-                          onChange={(e) => setEditWhatsapp(e.target.value)} 
+                          value={editWhatsapp}
+                          onChange={(e) => setEditWhatsapp(e.target.value)}
                         />
                       </div>
                       <div className="form-group full-grid-width">
                         <label className="form-label">E-mail</label>
-                        <input 
-                          type="email" 
+                        <input
+                          type="email"
                           className="form-input"
-                          value={editEmail} 
-                          onChange={(e) => setEditEmail(e.target.value)} 
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
                         />
                       </div>
                     </div>
@@ -1024,66 +1250,66 @@ export default function PatientProfileModal({
                     <div className="form-row grid-2">
                       <div className="form-group">
                         <label className="form-label">Peso Atual (kg)</label>
-                        <input 
-                          type="number" 
-                          step="0.1" 
+                        <input
+                          type="number"
+                          step="0.1"
                           className="form-input"
-                          value={editPeso} 
-                          onChange={(e) => setEditPeso(e.target.value)} 
+                          value={editPeso}
+                          onChange={(e) => setEditPeso(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Altura (cm)</label>
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           className="form-input"
-                          value={editAltura} 
-                          onChange={(e) => setEditAltura(e.target.value)} 
+                          value={editAltura}
+                          onChange={(e) => setEditAltura(e.target.value)}
                         />
                       </div>
                       <div className="form-group full-grid-width">
                         <label className="form-label">Objetivo Nutricional</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editObjetivo} 
-                          onChange={(e) => setEditObjetivo(e.target.value)} 
+                          value={editObjetivo}
+                          onChange={(e) => setEditObjetivo(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Patologias (separadas por vírgula)</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editPatologias} 
-                          onChange={(e) => setEditPatologias(e.target.value)} 
+                          value={editPatologias}
+                          onChange={(e) => setEditPatologias(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Restrições Alimentares</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editRestricoes} 
-                          onChange={(e) => setEditRestricoes(e.target.value)} 
+                          value={editRestricoes}
+                          onChange={(e) => setEditRestricoes(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Alergias</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editAlergias} 
-                          onChange={(e) => setEditAlergias(e.target.value)} 
+                          value={editAlergias}
+                          onChange={(e) => setEditAlergias(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Medicamentos Contínuos</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="form-input"
-                          value={editMedicamentos} 
-                          onChange={(e) => setEditMedicamentos(e.target.value)} 
+                          value={editMedicamentos}
+                          onChange={(e) => setEditMedicamentos(e.target.value)}
                         />
                       </div>
                     </div>
@@ -1094,125 +1320,86 @@ export default function PatientProfileModal({
                     <div className="form-row grid-2">
                       <div className="form-group">
                         <label className="form-label">Refeições por dia</label>
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           className="form-input"
-                          value={editRefeicoes} 
-                          onChange={(e) => setEditRefeicoes(e.target.value)} 
+                          value={editRefeicoes}
+                          onChange={(e) => setEditRefeicoes(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Água por dia (litros)</label>
-                        <input 
-                          type="number" 
-                          step="0.1" 
+                        <label className="form-label">Horário que acorda</label>
+                        <input
+                          type="time"
                           className="form-input"
-                          value={editAgua} 
-                          onChange={(e) => setEditAgua(e.target.value)} 
+                          value={editAcorda}
+                          onChange={(e) => setEditAcorda(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Horário que Acorda</label>
-                        <input 
-                          type="text" 
+                        <label className="form-label">Horário que dorme</label>
+                        <input
+                          type="time"
                           className="form-input"
-                          value={editAcorda} 
-                          onChange={(e) => setEditAcorda(e.target.value)} 
+                          value={editDorme}
+                          onChange={(e) => setEditDorme(e.target.value)}
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Horário que Dorme</label>
-                        <input 
-                          type="text" 
+                        <label className="form-label">Água por dia (Litros)</label>
+                        <input
+                          type="number"
+                          step="0.5"
                           className="form-input"
-                          value={editDorme} 
-                          onChange={(e) => setEditDorme(e.target.value)} 
-                        />
-                      </div>
-                      <div className="form-group full-grid-width">
-                        <label className="form-label">Observações Gerais</label>
-                        <textarea 
-                          className="form-input" 
-                          rows="3"
-                          value={editObs} 
-                          onChange={(e) => setEditObs(e.target.value)} 
+                          value={editAgua}
+                          onChange={(e) => setEditAgua(e.target.value)}
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="form-submit-row">
-                    <button 
-                      type="button" 
-                      className="btn-secondary"
-                      onClick={() => setIsEditingProntuario(false)}
-                    >
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                    <button type="button" className="btn-secondary" onClick={() => setIsEditingProntuario(false)}>
                       Cancelar
                     </button>
-                    <button 
-                      type="submit" 
-                      className="btn-primary"
-                      disabled={submitting}
-                    >
-                      <Save size={16} />
-                      <span>{submitting ? 'Salvando...' : 'Salvar Alterações'}</span>
+                    <button type="submit" className="btn-primary" disabled={submitting}>
+                      <Save size={16} /> Salvar Alterações
                     </button>
                   </div>
                 </form>
               ) : (
-                <div className="crud-view-details">
-                  <div className="detail-cards-grid">
-                    {/* Card Pessoal */}
-                    <div className="detail-info-block">
-                      <div className="block-header">
-                        <User size={16} /> <span>1. Informações Pessoais</span>
-                      </div>
-                      <div className="block-rows">
-                        <div className="info-item"><span className="lbl">Nome:</span> <strong>{paciente.nome}</strong></div>
-                        <div className="info-item"><span className="lbl">Data de Nasc.:</span> <span>{paciente.dataNascimento || 'Não informado'} {paciente.idade ? `(${paciente.idade} anos)` : ''}</span></div>
-                        <div className="info-item"><span className="lbl">Sexo:</span> <span>{paciente.sexo || 'Não informado'}</span></div>
-                        <div className="info-item"><span className="lbl">Telefone:</span> <span>{paciente.telefone || 'Não informado'}</span></div>
-                        <div className="info-item"><span className="lbl">WhatsApp:</span> <span>{paciente.whatsapp || paciente.telefone || 'Não informado'}</span></div>
-                        <div className="info-item"><span className="lbl">E-mail:</span> <span>{paciente.email || 'Não informado'}</span></div>
-                      </div>
+                /* MODO VISUALIZAÇÃO DOS DADOS DO PRONTUÁRIO */
+                <div className="crud-view-grid">
+                  <div className="crud-view-card">
+                    <h4 className="crud-cat-title"><User size={16} /> 1. Dados Pessoais</h4>
+                    <div className="info-kv-list">
+                      <div className="info-kv"><span className="kv-k">Nome:</span><strong className="kv-v">{paciente.nome}</strong></div>
+                      <div className="info-kv"><span className="kv-k">Nascimento:</span><span className="kv-v">{paciente.dataNascimento ? new Date(paciente.dataNascimento).toLocaleDateString('pt-BR') : 'Não informado'}</span></div>
+                      <div className="info-kv"><span className="kv-k">Telefone:</span><span className="kv-v">{paciente.telefone || 'Não informado'}</span></div>
+                      <div className="info-kv"><span className="kv-k">WhatsApp:</span><span className="kv-v">{paciente.whatsapp || paciente.telefone || 'Não informado'}</span></div>
+                      <div className="info-kv"><span className="kv-k">E-mail:</span><span className="kv-v">{paciente.email || 'Não informado'}</span></div>
                     </div>
+                  </div>
 
-                    {/* Card Clínico */}
-                    <div className="detail-info-block">
-                      <div className="block-header">
-                        <Activity size={16} /> <span>2. Perfil Clínico & Antropometria</span>
-                      </div>
-                      <div className="block-rows">
-                        <div className="info-item"><span className="lbl">Peso Atual:</span> <strong>{paciente.pesoAtual || '--'} kg</strong></div>
-                        <div className="info-item"><span className="lbl">Altura:</span> <span>{paciente.altura ? `${paciente.altura} cm` : 'Não informado'}</span></div>
-                        <div className="info-item"><span className="lbl">IMC:</span> <span className="highlight-pill">{paciente.imc || '--'}</span></div>
-                        <div className="info-item"><span className="lbl">Objetivo:</span> <span>{paciente.objetivo || 'Saúde geral'}</span></div>
-                        <div className="info-item"><span className="lbl">Nível de Atividade:</span> <span>{paciente.nivelAtividade || 'Sedentário'}</span></div>
-                        <div className="info-item"><span className="lbl">Patologias:</span> <span>{Array.isArray(paciente.patologias) && paciente.patologias.length > 0 ? paciente.patologias.join(', ') : 'Nenhuma relatada'}</span></div>
-                        <div className="info-item"><span className="lbl">Restrições:</span> <span>{Array.isArray(paciente.restricoesAlimentares) && paciente.restricoesAlimentares.length > 0 ? paciente.restricoesAlimentares.join(', ') : 'Nenhuma'}</span></div>
-                        <div className="info-item"><span className="lbl">Alergias:</span> <span>{Array.isArray(paciente.alergiasAlimentares) && paciente.alergiasAlimentares.length > 0 ? paciente.alergiasAlimentares.join(', ') : 'Nenhuma'}</span></div>
-                      </div>
+                  <div className="crud-view-card">
+                    <h4 className="crud-cat-title"><Activity size={16} /> 2. Dados Clínicos & Antropometria</h4>
+                    <div className="info-kv-list">
+                      <div className="info-kv"><span className="kv-k">Peso Atual:</span><strong className="kv-v">{paciente.pesoAtual} kg</strong></div>
+                      <div className="info-kv"><span className="kv-k">Altura:</span><span className="kv-v">{paciente.altura} cm</span></div>
+                      <div className="info-kv"><span className="kv-k">Objetivo:</span><span className="kv-v badge-obj-pill">{paciente.objetivo}</span></div>
+                      <div className="info-kv"><span className="kv-k">Patologias:</span><span className="kv-v">{Array.isArray(paciente.patologias) && paciente.patologias.length > 0 ? paciente.patologias.join(', ') : 'Nenhuma'}</span></div>
+                      <div className="info-kv"><span className="kv-k">Restrições:</span><span className="kv-v">{Array.isArray(paciente.restricoesAlimentares) && paciente.restricoesAlimentares.length > 0 ? paciente.restricoesAlimentares.join(', ') : 'Nenhuma'}</span></div>
+                      <div className="info-kv"><span className="kv-k">Alergias:</span><span className="kv-v">{Array.isArray(paciente.alergiasAlimentares) && paciente.alergiasAlimentares.length > 0 ? paciente.alergiasAlimentares.join(', ') : 'Nenhuma'}</span></div>
                     </div>
+                  </div>
 
-                    {/* Card Hábitos */}
-                    <div className="detail-info-block full-width-block">
-                      <div className="block-header">
-                        <Coffee size={16} /> <span>3. Hábitos de Vida & Rotina</span>
-                      </div>
-                      <div className="block-rows triple-grid">
-                        <div className="info-item"><span className="lbl">Refeições/dia:</span> <strong>{paciente.refeicoesPorDia || 4}</strong></div>
-                        <div className="info-item"><span className="lbl">Ingestão Hídrica:</span> <strong>{paciente.aguaPorDia || 2} litros</strong></div>
-                        <div className="info-item"><span className="lbl">Acorda / Dorme:</span> <span>{paciente.horarioAcorda || '07:00'} → {paciente.horarioDorme || '23:00'}</span></div>
-                        <div className="info-item"><span className="lbl">Atividade Física:</span> <span>{paciente.praticaAtividadeFisica ? `Sim (${paciente.atividadeFisicaDetalhes || 'Regular'})` : 'Não pratica'}</span></div>
-                        <div className="info-item"><span className="lbl">Medicamentos:</span> <span>{paciente.medicamentosContinuos || 'Nenhum'}</span></div>
-                        <div className="info-item"><span className="lbl">Suplementos:</span> <span>{paciente.suplementos || 'Nenhum'}</span></div>
-                      </div>
-                      {paciente.observacoesGerais && (
-                        <div className="obs-block" style={{ marginTop: '10px' }}>
-                          <span className="lbl">Observações:</span>
-                          <p className="obs-text">{paciente.observacoesGerais}</p>
-                        </div>
-                      )}
+                  <div className="crud-view-card full-span-card">
+                    <h4 className="crud-cat-title"><Coffee size={16} /> 3. Hábitos & Rotina Diária</h4>
+                    <div className="info-kv-grid">
+                      <div className="info-kv"><span className="kv-k">Refeições/dia:</span><strong className="kv-v">{paciente.refeicoesPorDia || 4}</strong></div>
+                      <div className="info-kv"><span className="kv-k">Rotina Sono:</span><span className="kv-v">{paciente.horarioAcorda || '07:00'} às {paciente.horarioDorme || '23:00'}</span></div>
+                      <div className="info-kv"><span className="kv-k">Ingestão Hídrica:</span><span className="kv-v">{paciente.aguaPorDia || 2} Litros/dia</span></div>
+                      <div className="info-kv"><span className="kv-k">Atividade Física:</span><span className="kv-v">{paciente.praticaAtividadeFisica ? 'Sim • ' + (paciente.atividadeFisicaDetalhes || 'Regular') : 'Sedentário'}</span></div>
                     </div>
                   </div>
                 </div>
@@ -1221,976 +1408,1403 @@ export default function PatientProfileModal({
           )}
 
           {/* =========================================================================
-              ABA 3: ANEXOS & EXAMES (NOVO — UPLOAD DE ARQUIVOS E IMAGENS)
+              ABA 3: PLANOS ALIMENTARES (SEÇÃO 3 - PROMPT 5)
               ========================================================================= */}
-          {activeTab === 'anexos' && (
-            <div className="attachments-tab-content animated-fade-in">
-              
-              {/* Painel de Upload Drag & Drop / Selecionar */}
-              <div className="attachment-upload-card">
-                <div className="upload-header-row">
-                  <div>
-                    <h3 className="upload-card-title">
-                      <Paperclip size={18} className="icon-purple" /> Anexar Exame ou Documento
-                    </h3>
-                    <p className="upload-card-desc">
-                      Anexe qualquer tipo de arquivo (PDF, imagens de exames, bioimpedância, fotos de refeições, laudos médicos, planilhas, etc.).
-                    </p>
-                  </div>
+          {activeTab === 'planos' && (
+            <div className="patient-planos-tab-content animated-fade-in">
+
+              <div className="planos-toolbar-card">
+                <div>
+                  <h3 className="planos-tab-title">
+                    <UtensilsCrossed size={18} className="icon-green" /> Planos Alimentares Prescritos
+                  </h3>
+                  <p className="planos-tab-subtitle">
+                    Histórico de condutas dietéticas e prescrições alimentares de {paciente.nome}.
+                  </p>
                 </div>
-
-                <div className="upload-controls-grid">
-                  <div className="form-group">
-                    <label className="form-label">Categoria do Documento</label>
-                    <select 
-                      className="form-input select-category-input"
-                      value={selectedCategoria}
-                      onChange={(e) => setSelectedCategoria(e.target.value)}
-                    >
-                      <option value="Exame Laboratorial / Sangue">🩸 Exame Laboratorial / Sangue</option>
-                      <option value="Bioimpedância & Composição Corporal">⚖️ Bioimpedância & Composição Corporal</option>
-                      <option value="Laudo & Encaminhamento Médico">🩺 Laudo & Encaminhamento Médico</option>
-                      <option value="Foto de Prato & Diário Alimentar">📸 Foto de Prato & Diário Alimentar</option>
-                      <option value="Exame de Imagem (Ultrassom / Raio-X)">🩻 Exame de Imagem</option>
-                      <option value="Outros Arquivos">📁 Outros Arquivos</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Observações / Notas do Arquivo (Opcional)</label>
-                    <input 
-                      type="text"
-                      className="form-input"
-                      placeholder="Ex: Hemograma completo e lipidograma - Laboratório Fleury"
-                      value={anexoObservacao}
-                      onChange={(e) => setAnexoObservacao(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Input File Escondido */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={handleFileUpload} 
-                  multiple
-                  style={{ display: 'none' }}
-                />
-
-                <div 
-                  className="upload-dropzone"
-                  onClick={() => fileInputRef.current?.click()}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                <button
+                  type="button"
+                  className="btn-primary btn-generate-plan"
+                  onClick={() => setShowGerarPlanoModal(true)}
                 >
-                  <div className="dropzone-icon-circle">
-                    <UploadCloud size={32} />
-                  </div>
-                  <div className="dropzone-text-group">
-                    <h4 className="dropzone-title">
-                      {uploadingFile ? 'Processando arquivo...' : 'Clique para selecionar arquivos ou imagens'}
-                    </h4>
-                    <p className="dropzone-subtitle">
-                      Suporta PDF, JPG, PNG, WEBP, DOCX, XLSX, TXT, DICOM e qualquer formato (sem limite rígido)
-                    </p>
-                  </div>
-                  <button 
-                    type="button" 
-                    className="btn-select-files"
-                    disabled={uploadingFile}
-                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                  >
-                    <Plus size={16} />
-                    <span>Selecionar do Computador</span>
-                  </button>
-                </div>
+                  <Sparkles size={16} /> Gerar Plano Alimentar
+                </button>
               </div>
 
-              {/* Lista de Arquivos Anexados */}
-              <div className="attached-files-section">
-                <div className="attached-section-header">
-                  <h4 className="attached-title">
-                    Arquivos Salvos no Prontuário ({anexosList.length})
-                  </h4>
-                  <span className="security-notice-pill">
-                    <ShieldCheck size={13} /> Armazenamento Seguro e Criptografado
-                  </span>
-                </div>
+              {planosList.length > 0 ? (
+                <div className="planos-history-grid">
+                  {planosList.map((plano) => {
+                    const d = new Date(plano.dataGeracao || plano.created_at);
+                    const dataFormatada = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-                {anexosList.length > 0 ? (
-                  <div className="attachments-grid">
-                    {anexosList.map((anexo) => {
-                      const isImage = anexo.tipo?.startsWith('image/');
-                      return (
-                        <div key={anexo.id} className="attachment-file-card">
-                          
-                          {/* Preview visual se for imagem */}
-                          {isImage && anexo.dataUrl ? (
-                            <div className="attachment-image-thumb" onClick={() => setPreviewingAnexo(anexo)}>
-                              <img src={anexo.dataUrl} alt={anexo.nome} />
-                              <div className="thumb-hover-overlay">
-                                <Eye size={18} />
-                                <span>Visualizar Imagem</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="attachment-doc-thumb">
-                              {getFileIcon(anexo.tipo, anexo.nome)}
-                            </div>
-                          )}
+                    return (
+                      <div key={plano.id} className="plano-card-item animated-fade-in" onClick={() => setSelectedPlano(plano)}>
+                        <div className="plano-card-header">
+                          <div className="plano-badge-title-wrap">
+                            <span className="plano-tag-badge">Prescrição Nutricional</span>
+                            <h4 className="plano-title">{plano.titulo}</h4>
+                          </div>
+                          <span className="plano-date-pill">
+                            <Calendar size={13} /> {dataFormatada}
+                          </span>
+                        </div>
 
-                          <div className="attachment-meta-info">
-                            <span className="attachment-cat-badge">{anexo.categoria || 'Documento'}</span>
-                            <h5 className="attachment-filename" title={anexo.nome}>{anexo.nome}</h5>
-                            
-                            <div className="attachment-sub-details">
-                              <span>{formatFileSize(anexo.tamanho)}</span>
-                              <span>•</span>
-                              <span>{new Date(anexo.created_at || Date.now()).toLocaleDateString('pt-BR')}</span>
-                            </div>
-
-                            {anexo.observacao && (
-                              <p className="attachment-note-text" title={anexo.observacao}>
-                                "{anexo.observacao}"
-                              </p>
-                            )}
+                        <div className="plano-card-body">
+                          <div className="plano-stat-box">
+                            <span className="stat-lbl">Valor Energético (VET)</span>
+                            <strong className="stat-val">{plano.caloriasTotais} <small>kcal/dia</small></strong>
                           </div>
 
-                          <div className="attachment-actions-row">
-                            {anexo.dataUrl && (
-                              <>
-                                <button 
-                                  type="button" 
-                                  className="btn-file-action" 
-                                  onClick={() => setPreviewingAnexo(anexo)}
-                                  title="Visualizar arquivo"
-                                >
-                                  <Eye size={14} />
-                                  <span>Abrir</span>
-                                </button>
+                          {plano.macros && (
+                            <div className="plano-macros-row">
+                              <span className="macro-badge-pill badge-p">P: {plano.macros.proteina}</span>
+                              <span className="macro-badge-pill badge-g">G: {plano.macros.gordura}</span>
+                              <span className="macro-badge-pill badge-c">C: {plano.macros.carboidrato}</span>
+                            </div>
+                          )}
+                        </div>
 
-                                <a 
-                                  href={anexo.dataUrl} 
-                                  download={anexo.nome}
-                                  className="btn-file-action btn-download"
-                                  title="Baixar arquivo no computador"
-                                >
-                                  <Download size={14} />
-                                  <span>Baixar</span>
-                                </a>
-                              </>
+                        <div className="plano-card-footer">
+                          <span className="btn-view-plano-link">
+                            <BookOpen size={14} /> Ver Cardápio Completo <ChevronRight size={14} />
+                          </span>
+
+                          <div className="plano-actions-mini" onClick={(e) => e.stopPropagation()}>
+                            {paciente.telefone && (
+                              <a
+                                href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Seu plano alimentar '${plano.titulo}' (${plano.caloriasTotais} kcal/dia) foi atualizado no sistema VIVA NUTRI. Confira seu cardápio completo! ✨`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-mini-wa"
+                                title="Enviar aviso no WhatsApp"
+                              >
+                                <MessageCircle size={14} />
+                              </a>
                             )}
-
-                            <button 
-                              type="button" 
-                              className="btn-file-action btn-file-delete"
-                              onClick={(e) => handleRemoverAnexo(anexo.id, e)}
-                              title="Remover anexo"
+                            <button
+                              type="button"
+                              className="btn-mini-del"
+                              onClick={(e) => handleRemoverPlano(plano.id, e)}
+                              title="Excluir este plano"
                             >
                               <Trash2 size={14} />
                             </button>
                           </div>
-
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="empty-attachments-box">
-                    <Paperclip size={36} className="empty-paperclip-icon" />
-                    <h4>Nenhum arquivo ou exame anexado</h4>
-                    <p>Faça upload de exames laboratoriais, fotos de bioimpedância ou receitas médicas acima para manter o histórico completo.</p>
-                  </div>
-                )}
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="empty-planos-card">
+                  <UtensilsCrossed size={40} className="empty-icon-green" />
+                  <h4>Nenhum plano alimentar gerado ainda</h4>
+                  <p>Clique no botão <strong>"Gerar Plano Alimentar"</strong> acima para prescrever a dieta e as metas calóricas deste paciente.</p>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ marginTop: '12px' }}
+                    onClick={() => setShowGerarPlanoModal(true)}
+                  >
+                    <Sparkles size={16} /> Gerar Primeiro Plano Alimentar
+                  </button>
+                </div>
+              )}
 
             </div>
           )}
 
-          {/* =========================================================================
-              ABA 4: LANÇAR NOVA MEDIÇÃO
+      {/* =========================================================================
+              ABA 3: ANEXOS & EXAMES (NOVO — UPLOAD DE ARQUIVOS E IMAGENS)
               ========================================================================= */}
-          {activeTab === 'nova-medicao' && (
-            <form onSubmit={handleSalvarMedicao} className="modal-new-metric-tab">
-              <div className="metric-input-grid">
-                <div className="form-group">
-                  <label className="form-label">Peso Atual (kg) *</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="form-input" 
-                    placeholder="Ex: 78.4" 
-                    value={novoPeso} 
-                    onChange={(e) => setNovoPeso(e.target.value)} 
-                    required 
-                    autoFocus
-                  />
-                </div>
+      {activeTab === 'anexos' && (
+        <div className="attachments-tab-content animated-fade-in">
 
-                <div className="form-group">
-                  <label className="form-label">% Gordura Corporal (BF)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="form-input" 
-                    placeholder="Ex: 22.5" 
-                    value={novaGordura} 
-                    onChange={(e) => setNovaGordura(e.target.value)} 
-                  />
-                </div>
+          {/* Painel de Upload Drag & Drop / Selecionar */}
+          <div className="attachment-upload-card">
+            <div className="upload-header-row">
+              <div>
+                <h3 className="upload-card-title">
+                  <Paperclip size={18} className="icon-purple" /> Anexar Exame ou Documento
+                </h3>
+                <p className="upload-card-desc">
+                  Anexe qualquer tipo de arquivo (PDF, imagens de exames, bioimpedância, fotos de refeições, laudos médicos, planilhas, etc.).
+                </p>
+              </div>
+            </div>
 
-                <div className="form-group">
-                  <label className="form-label">Massa Muscular (kg)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="form-input" 
-                    placeholder="Ex: 31.2" 
-                    value={novaMassaMagra} 
-                    onChange={(e) => setNovaMassaMagra(e.target.value)} 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Circunferência Abdominal (cm)</label>
-                  <input 
-                    type="number" 
-                    step="0.5" 
-                    className="form-input" 
-                    placeholder="Ex: 84.0" 
-                    value={novaCintura} 
-                    onChange={(e) => setNovaCintura(e.target.value)} 
-                  />
-                </div>
+            <div className="upload-controls-grid">
+              <div className="form-group">
+                <label className="form-label">Categoria do Documento</label>
+                <select
+                  className="form-input select-category-input"
+                  value={selectedCategoria}
+                  onChange={(e) => setSelectedCategoria(e.target.value)}
+                >
+                  <option value="Exame Laboratorial / Sangue">🩸 Exame Laboratorial / Sangue</option>
+                  <option value="Bioimpedância & Composição Corporal">⚖️ Bioimpedância & Composição Corporal</option>
+                  <option value="Laudo & Encaminhamento Médico">🩺 Laudo & Encaminhamento Médico</option>
+                  <option value="Foto de Prato & Diário Alimentar">📸 Foto de Prato & Diário Alimentar</option>
+                  <option value="Exame de Imagem (Ultrassom / Raio-X)">🩻 Exame de Imagem</option>
+                  <option value="Outros Arquivos">📁 Outros Arquivos</option>
+                </select>
               </div>
 
-              <div className="form-group" style={{ marginTop: '12px' }}>
-                <label className="form-label">Anotações Clínicas / Conduta Nutricional</label>
-                <textarea 
-                  className="form-input" 
-                  rows={3} 
-                  placeholder="Ex: Paciente relatou melhora na disposição. Reduzido aporte de sódio e aumentado proteínas pré-treino." 
-                  value={novasNotas} 
-                  onChange={(e) => setNovasNotas(e.target.value)} 
+              <div className="form-group">
+                <label className="form-label">Observações / Notas do Arquivo (Opcional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Hemograma completo e lipidograma - Laboratório Fleury"
+                  value={anexoObservacao}
+                  onChange={(e) => setAnexoObservacao(e.target.value)}
                 />
               </div>
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-                <button 
-                  type="button" 
-                  className="btn-secondary" 
-                  onClick={() => setActiveTab('evolucao')}
-                >
-                  Voltar para o Gráfico
+            {/* Input File Escondido */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              multiple
+              style={{ display: 'none' }}
+            />
+
+            <div
+              className="upload-dropzone"
+              onClick={() => fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+            >
+              <div className="dropzone-icon-circle">
+                <UploadCloud size={32} />
+              </div>
+              <div className="dropzone-text-group">
+                <h4 className="dropzone-title">
+                  {uploadingFile ? 'Processando arquivo...' : 'Clique para selecionar arquivos ou imagens'}
+                </h4>
+                <p className="dropzone-subtitle">
+                  Suporta PDF, JPG, PNG, WEBP, DOCX, XLSX, TXT, DICOM e qualquer formato (sem limite rígido)
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-select-files"
+                disabled={uploadingFile}
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+              >
+                <Plus size={16} />
+                <span>Selecionar do Computador</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Lista de Arquivos Anexados */}
+          <div className="attached-files-section">
+            <div className="attached-section-header">
+              <h4 className="attached-title">
+                Arquivos Salvos no Prontuário ({anexosList.length})
+              </h4>
+              <span className="security-notice-pill">
+                <ShieldCheck size={13} /> Armazenamento Seguro e Criptografado
+              </span>
+            </div>
+
+            {anexosList.length > 0 ? (
+              <div className="attachments-grid">
+                {anexosList.map((anexo) => {
+                  const isImage = anexo.tipo?.startsWith('image/');
+                  return (
+                    <div key={anexo.id} className="attachment-file-card">
+
+                      {/* Preview visual se for imagem */}
+                      {isImage && anexo.dataUrl ? (
+                        <div className="attachment-image-thumb" onClick={() => setPreviewingAnexo(anexo)}>
+                          <img src={anexo.dataUrl} alt={anexo.nome} />
+                          <div className="thumb-hover-overlay">
+                            <Eye size={18} />
+                            <span>Visualizar Imagem</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="attachment-doc-thumb">
+                          {getFileIcon(anexo.tipo, anexo.nome)}
+                        </div>
+                      )}
+
+                      <div className="attachment-meta-info">
+                        <span className="attachment-cat-badge">{anexo.categoria || 'Documento'}</span>
+                        <h5 className="attachment-filename" title={anexo.nome}>{anexo.nome}</h5>
+
+                        <div className="attachment-sub-details">
+                          <span>{formatFileSize(anexo.tamanho)}</span>
+                          <span>•</span>
+                          <span>{new Date(anexo.created_at || Date.now()).toLocaleDateString('pt-BR')}</span>
+                        </div>
+
+                        {anexo.observacao && (
+                          <p className="attachment-note-text" title={anexo.observacao}>
+                            "{anexo.observacao}"
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="attachment-actions-row">
+                        {anexo.dataUrl && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-file-action"
+                              onClick={() => setPreviewingAnexo(anexo)}
+                              title="Visualizar arquivo"
+                            >
+                              <Eye size={14} />
+                              <span>Abrir</span>
+                            </button>
+
+                            <a
+                              href={anexo.dataUrl}
+                              download={anexo.nome}
+                              className="btn-file-action btn-download"
+                              title="Baixar arquivo no computador"
+                            >
+                              <Download size={14} />
+                              <span>Baixar</span>
+                            </a>
+                          </>
+                        )}
+
+                        <button
+                          type="button"
+                          className="btn-file-action btn-file-delete"
+                          onClick={(e) => handleRemoverAnexo(anexo.id, e)}
+                          title="Remover anexo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-attachments-box">
+                <Paperclip size={36} className="empty-paperclip-icon" />
+                <h4>Nenhum arquivo ou exame anexado</h4>
+                <p>Faça upload de exames laboratoriais, fotos de bioimpedância ou receitas médicas acima para manter o histórico completo.</p>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      {/* =========================================================================
+              ABA 4: LANÇAR NOVA MEDIÇÃO
+              ========================================================================= */}
+      {activeTab === 'nova-medicao' && (
+        <form onSubmit={handleSalvarMedicao} className="modal-new-metric-tab">
+          <div className="metric-input-grid">
+            <div className="form-group">
+              <label className="form-label">Peso Atual (kg) *</label>
+              <input
+                type="number"
+                step="0.1"
+                className="form-input"
+                placeholder="Ex: 78.4"
+                value={novoPeso}
+                onChange={(e) => setNovoPeso(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">% Gordura Corporal (BF)</label>
+              <input
+                type="number"
+                step="0.1"
+                className="form-input"
+                placeholder="Ex: 22.5"
+                value={novaGordura}
+                onChange={(e) => setNovaGordura(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Massa Muscular (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                className="form-input"
+                placeholder="Ex: 31.2"
+                value={novaMassaMagra}
+                onChange={(e) => setNovaMassaMagra(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Circunferência Abdominal (cm)</label>
+              <input
+                type="number"
+                step="0.5"
+                className="form-input"
+                placeholder="Ex: 84.0"
+                value={novaCintura}
+                onChange={(e) => setNovaCintura(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '12px' }}>
+            <label className="form-label">Anotações Clínicas / Conduta Nutricional</label>
+            <textarea
+              className="form-input"
+              rows={3}
+              placeholder="Ex: Paciente relatou melhora na disposição. Reduzido aporte de sódio e aumentado proteínas pré-treino."
+              value={novasNotas}
+              onChange={(e) => setNovasNotas(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setActiveTab('evolucao')}
+            >
+              Voltar para o Gráfico
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={submitting || !novoPeso}
+            >
+              {submitting ? 'Salvando...' : 'Salvar e Atualizar Gráfico'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* =========================================================================
+              ABA 5: CONSULTAS & AGENDAMENTO (HISTÓRICO, REAGENDAMENTO, MODALIDADE, CONFIRMAÇÃO)
+              ========================================================================= */}
+      {activeTab === 'consultas' && (
+        <div className="patient-consultas-tab-content animated-fade-in">
+
+          {/* FORMULÁRIO DE EDIÇÃO / REAGENDAMENTO (INLINE SE ATIVO) */}
+          {editingConsultaId ? (
+            <form onSubmit={handleSalvarEdicaoConsulta} className="edit-consulta-box-card animated-fade-in">
+              <div className="edit-box-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Edit3 size={18} className="icon-purple" />
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Alterar / Reagendar Consulta</h4>
+                </div>
+                <button type="button" className="btn-cancel-flat btn-sm" onClick={handleCancelEditConsulta}>
+                  <X size={16} /> Cancelar Edição
                 </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary" 
-                  disabled={submitting || !novoPeso}
+              </div>
+
+              <div className="form-row grid-2" style={{ marginTop: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">Data da Consulta *</label>
+                  <input
+                    type="date"
+                    className={`form-input ${editConflict ? 'input-error-border' : ''}`}
+                    value={editConsultaData}
+                    onChange={(e) => setEditConsultaData(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Horário *</label>
+                  <input
+                    type="time"
+                    className={`form-input ${editConflict ? 'input-error-border' : ''}`}
+                    value={editConsultaHora}
+                    onChange={(e) => setEditConsultaHora(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Alerta de Conflito de Horário */}
+              {editConflict && (
+                <div className="alert-schedule-conflict animated-fade-in" style={{ margin: '8px 0' }}>
+                  <div className="conflict-icon-wrap"><AlertTriangle size={18} /></div>
+                  <div className="conflict-text-wrap">
+                    <h5 className="conflict-heading">⚠️ Horário Ocupado</h5>
+                    <p className="conflict-desc">
+                      O paciente <strong>{editConflict.paciente_nome}</strong> já está agendado para este horário.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Tipo de Atendimento</label>
+                <select
+                  className="form-input"
+                  value={editConsultaTipo}
+                  onChange={(e) => setEditConsultaTipo(e.target.value)}
                 >
-                  {submitting ? 'Salvando...' : 'Salvar e Atualizar Gráfico'}
+                  <option value="Consulta de Retorno">Consulta de Retorno</option>
+                  <option value="Bioimpedância e Antropometria">Bioimpedância e Antropometria</option>
+                  <option value="Ajuste de Cardápio / Plano">Ajuste de Cardápio / Plano</option>
+                  <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
+                  <option value="Avaliação de Exames Laboratoriais">Avaliação de Exames Laboratoriais</option>
+                </select>
+              </div>
+
+              {/* Modalidade (Presencial / Online) */}
+              <div className="form-group">
+                <label className="form-label">Modalidade da Consulta</label>
+                <div className="modality-segmented-control">
+                  <button
+                    type="button"
+                    className={`btn-modality-opt ${editConsultaModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setEditConsultaModalidade('presencial')}
+                  >
+                    <MapPin size={15} /> Presencial (Consultório)
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-modality-opt ${editConsultaModalidade === 'online' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setEditConsultaModalidade('online')}
+                  >
+                    <Video size={15} /> Online (Teleconsulta)
+                  </button>
+                </div>
+              </div>
+
+              {/* Link se for Online */}
+              {editConsultaModalidade === 'online' && (
+                <div className="form-group animated-fade-in">
+                  <label className="form-label">Link da Sala (Google Meet / Zoom / WhatsApp)</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="url"
+                      className="form-input"
+                      style={{ paddingLeft: '34px' }}
+                      placeholder="https://meet.google.com/..."
+                      value={editConsultaLink}
+                      onChange={(e) => setEditConsultaLink(e.target.value)}
+                    />
+                    <LinkIcon size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Confirmação de Presença */}
+              <div className="form-group">
+                <label className="form-label">Status de Confirmação do Paciente</label>
+                <div className="confirmation-segmented-control">
+                  <button
+                    type="button"
+                    className={`btn-conf-opt ${editConsultaConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
+                    onClick={() => setEditConsultaConfirmacao('confirmado')}
+                  >
+                    <UserCheck size={15} /> Confirmado pelo Paciente
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-conf-opt ${editConsultaConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
+                    onClick={() => setEditConsultaConfirmacao('pendente')}
+                  >
+                    <HelpCircle size={15} /> Aguardando Confirmação
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                <button type="button" className="btn-secondary" onClick={handleCancelEditConsulta}>
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className={`btn-primary ${editConflict ? 'btn-disabled-conflict' : ''}`}
+                  disabled={submitting || Boolean(editConflict)}
+                >
+                  <Save size={14} /> Salvar Alterações
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {/* LISTA DE CONSULTAS AGENDADAS & HISTÓRICO */}
+          <div className="patient-appts-list-card">
+            <div className="appts-list-header">
+              <div>
+                <h4 className="appts-list-title">
+                  <CalendarDays size={18} className="icon-purple" /> Consultas de {paciente.nome} ({consultasPaciente.length})
+                </h4>
+                <p className="appts-list-subtitle">
+                  Visualize, altere horários, edite confirmação e inicie teleconsultas em 1 clique.
+                </p>
+              </div>
+            </div>
+
+            {consultasPaciente.length > 0 ? (
+              <div className="patient-appts-grid">
+                {consultasPaciente.map((c) => {
+                  const d = new Date(c.data_consulta);
+                  const isRealizada = c.status === 'realizada';
+                  const isConfirmado = c.confirmacao === 'confirmado';
+                  const isOnline = c.modalidade === 'online';
+                  const dataFormatada = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+                  const horaFormatada = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                  return (
+                    <div key={c.id} className={`patient-appt-item ${isRealizada ? 'item-completed' : ''} ${isConfirmado ? 'item-confirmed' : 'item-pending'}`}>
+                      <div className="item-left-info">
+                        <div className="item-datetime-pill">
+                          <Clock size={13} />
+                          <span>{dataFormatada} às {horaFormatada}</span>
+                        </div>
+
+                        <h5 className="item-type-title">{c.tipo || 'Consulta de Retorno'}</h5>
+
+                        <div className="item-badges-row">
+                          {/* Modalidade */}
+                          <span className={`badge-modalidade-pill ${isOnline ? 'pill-online' : 'pill-presencial'}`}>
+                            {isOnline ? <><Video size={11} /> Online (Teleconsulta)</> : <><MapPin size={11} /> Presencial</>}
+                          </span>
+
+                          {/* Confirmação (Botão interativo) */}
+                          <button
+                            type="button"
+                            className={`btn-toggle-conf ${isConfirmado ? 'conf-ok' : 'conf-pending'}`}
+                            onClick={() => handleToggleConfirmacao(c.id)}
+                            title={isConfirmado ? 'Presença confirmada. Clique para alterar para pendente.' : 'Pendente de confirmação. Clique para confirmar presença.'}
+                          >
+                            {isConfirmado ? <><UserCheck size={12} /> Confirmado</> : <><HelpCircle size={12} /> Aguardando</>}
+                          </button>
+
+                          {/* Status Realizada */}
+                          {isRealizada && (
+                            <span className="badge-conf-pill pill-conf-ok">✓ Realizada</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="item-actions-col">
+                        {/* Se for online e tiver link */}
+                        {isOnline && c.linkTeleconsulta && (
+                          <a
+                            href={c.linkTeleconsulta}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-item-action btn-item-video"
+                            title="Abrir sala de Teleconsulta"
+                          >
+                            <Video size={14} /> <span>Abrir Sala</span>
+                          </a>
+                        )}
+
+                        {/* WhatsApp de confirmação */}
+                        {paciente.telefone && (
+                          <a
+                            href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! Tudo bem? Passando para confirmar sua consulta nutricional no dia ${d.toLocaleDateString('pt-BR')} às ${horaFormatada} (${isOnline ? 'Online por Vídeo' : 'Presencial no Consultório'}). Poderia confirmar sua presença respondendo 'CONFIRMO'? 🥗✨`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-item-action btn-item-wa"
+                            title="Pedir confirmação no WhatsApp"
+                          >
+                            <MessageCircle size={14} /> <span>WhatsApp</span>
+                          </a>
+                        )}
+
+                        {/* Botão de Alterar / Reagendar */}
+                        <button
+                          type="button"
+                          className="btn-item-action btn-item-edit"
+                          onClick={() => handleStartEditConsulta(c)}
+                          title="Alterar data, horário, modalidade ou confirmação"
+                        >
+                          <Edit3 size={14} /> <span>Alterar</span>
+                        </button>
+
+                        {/* Concluir / Desmarcar */}
+                        <button
+                          type="button"
+                          className={`btn-item-action ${isRealizada ? 'btn-item-check-done' : 'btn-item-check'}`}
+                          onClick={() => handleToggleStatus(c)}
+                          title={isRealizada ? 'Marcar como não realizada' : 'Marcar consulta como concluída'}
+                        >
+                          <Check size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn-item-action btn-item-del"
+                          onClick={() => handleDesmarcar(c.id)}
+                          title="Desmarcar esta consulta"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-patient-appts">
+                <Calendar size={32} className="icon-purple" />
+                <h4>Nenhum agendamento registrado</h4>
+                <p>Agende uma nova consulta de retorno logo abaixo para garantir a adesão do paciente.</p>
+              </div>
+            )}
+          </div>
+
+          {/* SEÇÃO: AGENDAR NOVA CONSULTA / RETORNO */}
+          {!editingConsultaId && (
+            <form onSubmit={handleAgendarNovoRetorno} className="new-appointment-subcard">
+              <div className="subcard-header">
+                <CalendarPlus size={18} className="icon-purple" />
+                <h4>Agendar Nova Consulta para {paciente.nome}</h4>
+              </div>
+
+              <div className="form-row grid-2">
+                <div className="form-group">
+                  <label className="form-label">Data *</label>
+                  <input
+                    type="date"
+                    className={`form-input ${novoConflict ? 'input-error-border' : ''}`}
+                    value={novoData}
+                    onChange={(e) => setNovoData(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Horário *</label>
+                  <input
+                    type="time"
+                    className={`form-input ${novoConflict ? 'input-error-border' : ''}`}
+                    value={novoHora}
+                    onChange={(e) => setNovoHora(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              {novoConflict && (
+                <div className="alert-schedule-conflict animated-fade-in" style={{ margin: '8px 0' }}>
+                  <div className="conflict-icon-wrap"><AlertTriangle size={18} /></div>
+                  <div className="conflict-text-wrap">
+                    <h5 className="conflict-heading">⚠️ Horário Ocupado</h5>
+                    <p className="conflict-desc">
+                      O paciente <strong>{novoConflict.paciente_nome}</strong> já está agendado neste horário.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Tipo de Consulta</label>
+                <select
+                  className="form-input"
+                  value={novoTipo}
+                  onChange={(e) => setNovoTipo(e.target.value)}
+                >
+                  <option value="Consulta de Retorno">Consulta de Retorno</option>
+                  <option value="Bioimpedância e Antropometria">Bioimpedância e Antropometria</option>
+                  <option value="Ajuste de Cardápio / Plano">Ajuste de Cardápio / Plano</option>
+                  <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
+                  <option value="Avaliação de Exames Laboratoriais">Avaliação de Exames Laboratoriais</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Modalidade de Atendimento</label>
+                <div className="modality-segmented-control">
+                  <button
+                    type="button"
+                    className={`btn-modality-opt ${novoModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setNovoModalidade('presencial')}
+                  >
+                    <MapPin size={15} /> Presencial (Consultório)
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-modality-opt ${novoModalidade === 'online' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setNovoModalidade('online')}
+                  >
+                    <Video size={15} /> Online (Teleconsulta)
+                  </button>
+                </div>
+              </div>
+
+              {novoModalidade === 'online' && (
+                <div className="form-group animated-fade-in">
+                  <label className="form-label">Link da Sala (Google Meet / Zoom / WhatsApp)</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="url"
+                      className="form-input"
+                      style={{ paddingLeft: '34px' }}
+                      placeholder="https://meet.google.com/..."
+                      value={novoLink}
+                      onChange={(e) => setNovoLink(e.target.value)}
+                    />
+                    <LinkIcon size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Status Inicial de Confirmação</label>
+                <div className="confirmation-segmented-control">
+                  <button
+                    type="button"
+                    className={`btn-conf-opt ${novoConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
+                    onClick={() => setNovoConfirmacao('confirmado')}
+                  >
+                    <UserCheck size={15} /> Já Confirmado pelo Paciente
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-conf-opt ${novoConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
+                    onClick={() => setNovoConfirmacao('pendente')}
+                  >
+                    <HelpCircle size={15} /> Aguardando Confirmação
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
+                <button
+                  type="submit"
+                  className={`btn-primary ${novoConflict ? 'btn-disabled-conflict' : ''}`}
+                  disabled={submitting || !novoData || Boolean(novoConflict)}
+                >
+                  <CalendarPlus size={16} /> Confirmar Novo Agendamento
                 </button>
               </div>
             </form>
           )}
 
-          {/* =========================================================================
-              ABA 5: CONSULTAS & AGENDAMENTO (HISTÓRICO, REAGENDAMENTO, MODALIDADE, CONFIRMAÇÃO)
-              ========================================================================= */}
-          {activeTab === 'consultas' && (
-            <div className="patient-consultas-tab-content animated-fade-in">
-              
-              {/* FORMULÁRIO DE EDIÇÃO / REAGENDAMENTO (INLINE SE ATIVO) */}
-              {editingConsultaId ? (
-                <form onSubmit={handleSalvarEdicaoConsulta} className="edit-consulta-box-card animated-fade-in">
-                  <div className="edit-box-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Edit3 size={18} className="icon-purple" />
-                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Alterar / Reagendar Consulta</h4>
-                    </div>
-                    <button type="button" className="btn-cancel-flat btn-sm" onClick={handleCancelEditConsulta}>
-                      <X size={16} /> Cancelar Edição
-                    </button>
-                  </div>
+        </div>
+      )}
 
-                  <div className="form-row grid-2" style={{ marginTop: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Data da Consulta *</label>
-                      <input 
-                        type="date"
-                        className={`form-input ${editConflict ? 'input-error-border' : ''}`}
-                        value={editConsultaData}
-                        onChange={(e) => setEditConsultaData(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Horário *</label>
-                      <input 
-                        type="time"
-                        className={`form-input ${editConflict ? 'input-error-border' : ''}`}
-                        value={editConsultaHora}
-                        onChange={(e) => setEditConsultaHora(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Alerta de Conflito de Horário */}
-                  {editConflict && (
-                    <div className="alert-schedule-conflict animated-fade-in" style={{ margin: '8px 0' }}>
-                      <div className="conflict-icon-wrap"><AlertTriangle size={18} /></div>
-                      <div className="conflict-text-wrap">
-                        <h5 className="conflict-heading">⚠️ Horário Ocupado</h5>
-                        <p className="conflict-desc">
-                          O paciente <strong>{editConflict.paciente_nome}</strong> já está agendado para este horário.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label className="form-label">Tipo de Atendimento</label>
-                    <select 
-                      className="form-input"
-                      value={editConsultaTipo}
-                      onChange={(e) => setEditConsultaTipo(e.target.value)}
-                    >
-                      <option value="Consulta de Retorno">Consulta de Retorno</option>
-                      <option value="Bioimpedância e Antropometria">Bioimpedância e Antropometria</option>
-                      <option value="Ajuste de Cardápio / Plano">Ajuste de Cardápio / Plano</option>
-                      <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
-                      <option value="Avaliação de Exames Laboratoriais">Avaliação de Exames Laboratoriais</option>
-                    </select>
-                  </div>
-
-                  {/* Modalidade (Presencial / Online) */}
-                  <div className="form-group">
-                    <label className="form-label">Modalidade da Consulta</label>
-                    <div className="modality-segmented-control">
-                      <button 
-                        type="button"
-                        className={`btn-modality-opt ${editConsultaModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
-                        onClick={() => setEditConsultaModalidade('presencial')}
-                      >
-                        <MapPin size={15} /> Presencial (Consultório)
-                      </button>
-                      <button 
-                        type="button"
-                        className={`btn-modality-opt ${editConsultaModalidade === 'online' ? 'mod-opt-active' : ''}`}
-                        onClick={() => setEditConsultaModalidade('online')}
-                      >
-                        <Video size={15} /> Online (Teleconsulta)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Link se for Online */}
-                  {editConsultaModalidade === 'online' && (
-                    <div className="form-group animated-fade-in">
-                      <label className="form-label">Link da Sala (Google Meet / Zoom / WhatsApp)</label>
-                      <div style={{ position: 'relative' }}>
-                        <input 
-                          type="url"
-                          className="form-input"
-                          style={{ paddingLeft: '34px' }}
-                          placeholder="https://meet.google.com/..."
-                          value={editConsultaLink}
-                          onChange={(e) => setEditConsultaLink(e.target.value)}
-                        />
-                        <LinkIcon size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Confirmação de Presença */}
-                  <div className="form-group">
-                    <label className="form-label">Status de Confirmação do Paciente</label>
-                    <div className="confirmation-segmented-control">
-                      <button 
-                        type="button"
-                        className={`btn-conf-opt ${editConsultaConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
-                        onClick={() => setEditConsultaConfirmacao('confirmado')}
-                      >
-                        <UserCheck size={15} /> Confirmado pelo Paciente
-                      </button>
-                      <button 
-                        type="button"
-                        className={`btn-conf-opt ${editConsultaConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
-                        onClick={() => setEditConsultaConfirmacao('pendente')}
-                      >
-                        <HelpCircle size={15} /> Aguardando Confirmação
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
-                    <button type="button" className="btn-secondary" onClick={handleCancelEditConsulta}>
-                      Cancelar
-                    </button>
-                    <button 
-                      type="submit" 
-                      className={`btn-primary ${editConflict ? 'btn-disabled-conflict' : ''}`}
-                      disabled={submitting || Boolean(editConflict)}
-                    >
-                      <Save size={14} /> Salvar Alterações
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-
-              {/* LISTA DE CONSULTAS AGENDADAS & HISTÓRICO */}
-              <div className="patient-appts-list-card">
-                <div className="appts-list-header">
-                  <div>
-                    <h4 className="appts-list-title">
-                      <CalendarDays size={18} className="icon-purple" /> Consultas de {paciente.nome} ({consultasPaciente.length})
-                    </h4>
-                    <p className="appts-list-subtitle">
-                      Visualize, altere horários, edite confirmação e inicie teleconsultas em 1 clique.
-                    </p>
-                  </div>
-                </div>
-
-                {consultasPaciente.length > 0 ? (
-                  <div className="patient-appts-grid">
-                    {consultasPaciente.map((c) => {
-                      const d = new Date(c.data_consulta);
-                      const isRealizada = c.status === 'realizada';
-                      const isConfirmado = c.confirmacao === 'confirmado';
-                      const isOnline = c.modalidade === 'online';
-                      const dataFormatada = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-                      const horaFormatada = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-                      return (
-                        <div key={c.id} className={`patient-appt-item ${isRealizada ? 'item-completed' : ''} ${isConfirmado ? 'item-confirmed' : 'item-pending'}`}>
-                          <div className="item-left-info">
-                            <div className="item-datetime-pill">
-                              <Clock size={13} />
-                              <span>{dataFormatada} às {horaFormatada}</span>
-                            </div>
-                            
-                            <h5 className="item-type-title">{c.tipo || 'Consulta de Retorno'}</h5>
-
-                            <div className="item-badges-row">
-                              {/* Modalidade */}
-                              <span className={`badge-modalidade-pill ${isOnline ? 'pill-online' : 'pill-presencial'}`}>
-                                {isOnline ? <><Video size={11} /> Online (Teleconsulta)</> : <><MapPin size={11} /> Presencial</>}
-                              </span>
-
-                              {/* Confirmação (Botão interativo) */}
-                              <button 
-                                type="button" 
-                                className={`btn-toggle-conf ${isConfirmado ? 'conf-ok' : 'conf-pending'}`}
-                                onClick={() => handleToggleConfirmacao(c.id)}
-                                title={isConfirmado ? 'Presença confirmada. Clique para alterar para pendente.' : 'Pendente de confirmação. Clique para confirmar presença.'}
-                              >
-                                {isConfirmado ? <><UserCheck size={12} /> Confirmado</> : <><HelpCircle size={12} /> Aguardando</>}
-                              </button>
-
-                              {/* Status Realizada */}
-                              {isRealizada && (
-                                <span className="badge-conf-pill pill-conf-ok">✓ Realizada</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="item-actions-col">
-                            {/* Se for online e tiver link */}
-                            {isOnline && c.linkTeleconsulta && (
-                              <a 
-                                href={c.linkTeleconsulta}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn-item-action btn-item-video"
-                                title="Abrir sala de Teleconsulta"
-                              >
-                                <Video size={14} /> <span>Abrir Sala</span>
-                              </a>
-                            )}
-
-                            {/* WhatsApp de confirmação */}
-                            {paciente.telefone && (
-                              <a 
-                                href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! Tudo bem? Passando para confirmar sua consulta nutricional no dia ${d.toLocaleDateString('pt-BR')} às ${horaFormatada} (${isOnline ? 'Online por Vídeo' : 'Presencial no Consultório'}). Poderia confirmar sua presença respondendo 'CONFIRMO'? 🥗✨`)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn-item-action btn-item-wa"
-                                title="Pedir confirmação no WhatsApp"
-                              >
-                                <MessageCircle size={14} /> <span>WhatsApp</span>
-                              </a>
-                            )}
-
-                            {/* Botão de Alterar / Reagendar */}
-                            <button 
-                              type="button" 
-                              className="btn-item-action btn-item-edit"
-                              onClick={() => handleStartEditConsulta(c)}
-                              title="Alterar data, horário, modalidade ou confirmação"
-                            >
-                              <Edit3 size={14} /> <span>Alterar</span>
-                            </button>
-
-                            {/* Concluir / Desmarcar */}
-                            <button 
-                              type="button" 
-                              className={`btn-item-action ${isRealizada ? 'btn-item-check-done' : 'btn-item-check'}`}
-                              onClick={() => handleToggleStatus(c)}
-                              title={isRealizada ? 'Marcar como não realizada' : 'Marcar consulta como concluída'}
-                            >
-                              <Check size={14} />
-                            </button>
-
-                            <button 
-                              type="button" 
-                              className="btn-item-action btn-item-del"
-                              onClick={() => handleDesmarcar(c.id)}
-                              title="Desmarcar esta consulta"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="empty-patient-appts">
-                    <Calendar size={32} className="icon-purple" />
-                    <h4>Nenhum agendamento registrado</h4>
-                    <p>Agende uma nova consulta de retorno logo abaixo para garantir a adesão do paciente.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* SEÇÃO: AGENDAR NOVA CONSULTA / RETORNO */}
-              {!editingConsultaId && (
-                <form onSubmit={handleAgendarNovoRetorno} className="new-appointment-subcard">
-                  <div className="subcard-header">
-                    <CalendarPlus size={18} className="icon-purple" />
-                    <h4>Agendar Nova Consulta para {paciente.nome}</h4>
-                  </div>
-
-                  <div className="form-row grid-2">
-                    <div className="form-group">
-                      <label className="form-label">Data *</label>
-                      <input 
-                        type="date"
-                        className={`form-input ${novoConflict ? 'input-error-border' : ''}`}
-                        value={novoData}
-                        onChange={(e) => setNovoData(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Horário *</label>
-                      <input 
-                        type="time"
-                        className={`form-input ${novoConflict ? 'input-error-border' : ''}`}
-                        value={novoHora}
-                        onChange={(e) => setNovoHora(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {novoConflict && (
-                    <div className="alert-schedule-conflict animated-fade-in" style={{ margin: '8px 0' }}>
-                      <div className="conflict-icon-wrap"><AlertTriangle size={18} /></div>
-                      <div className="conflict-text-wrap">
-                        <h5 className="conflict-heading">⚠️ Horário Ocupado</h5>
-                        <p className="conflict-desc">
-                          O paciente <strong>{novoConflict.paciente_nome}</strong> já está agendado neste horário.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label className="form-label">Tipo de Consulta</label>
-                    <select 
-                      className="form-input"
-                      value={novoTipo}
-                      onChange={(e) => setNovoTipo(e.target.value)}
-                    >
-                      <option value="Consulta de Retorno">Consulta de Retorno</option>
-                      <option value="Bioimpedância e Antropometria">Bioimpedância e Antropometria</option>
-                      <option value="Ajuste de Cardápio / Plano">Ajuste de Cardápio / Plano</option>
-                      <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
-                      <option value="Avaliação de Exames Laboratoriais">Avaliação de Exames Laboratoriais</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Modalidade de Atendimento</label>
-                    <div className="modality-segmented-control">
-                      <button 
-                        type="button"
-                        className={`btn-modality-opt ${novoModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
-                        onClick={() => setNovoModalidade('presencial')}
-                      >
-                        <MapPin size={15} /> Presencial (Consultório)
-                      </button>
-                      <button 
-                        type="button"
-                        className={`btn-modality-opt ${novoModalidade === 'online' ? 'mod-opt-active' : ''}`}
-                        onClick={() => setNovoModalidade('online')}
-                      >
-                        <Video size={15} /> Online (Teleconsulta)
-                      </button>
-                    </div>
-                  </div>
-
-                  {novoModalidade === 'online' && (
-                    <div className="form-group animated-fade-in">
-                      <label className="form-label">Link da Sala (Google Meet / Zoom / WhatsApp)</label>
-                      <div style={{ position: 'relative' }}>
-                        <input 
-                          type="url"
-                          className="form-input"
-                          style={{ paddingLeft: '34px' }}
-                          placeholder="https://meet.google.com/..."
-                          value={novoLink}
-                          onChange={(e) => setNovoLink(e.target.value)}
-                        />
-                        <LinkIcon size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label className="form-label">Status Inicial de Confirmação</label>
-                    <div className="confirmation-segmented-control">
-                      <button 
-                        type="button"
-                        className={`btn-conf-opt ${novoConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
-                        onClick={() => setNovoConfirmacao('confirmado')}
-                      >
-                        <UserCheck size={15} /> Já Confirmado pelo Paciente
-                      </button>
-                      <button 
-                        type="button"
-                        className={`btn-conf-opt ${novoConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
-                        onClick={() => setNovoConfirmacao('pendente')}
-                      >
-                        <HelpCircle size={15} /> Aguardando Confirmação
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
-                    <button 
-                      type="submit" 
-                      className={`btn-primary ${novoConflict ? 'btn-disabled-conflict' : ''}`}
-                      disabled={submitting || !novoData || Boolean(novoConflict)}
-                    >
-                      <CalendarPlus size={16} /> Confirmar Novo Agendamento
-                    </button>
-                  </div>
-                </form>
-              )}
-
-            </div>
-          )}
-
-          {/* =========================================================================
+      {/* =========================================================================
               ABA 6: CALCULADORA NUTRICIONAL & METAS ENERGÉTICAS (TMB / GET / VET / MACROS)
               ========================================================================= */}
-          {activeTab === 'calculadora' && (
-            <div className="patient-calculator-tab-content animated-fade-in">
-              
-              {/* Banner de Dados Biométricos Base */}
-              <div className="calc-summary-ribbon">
-                <div className="calc-bio-item">
-                  <span className="bio-lbl">Paciente:</span>
-                  <strong>{paciente.nome}</strong>
-                </div>
-                <div className="calc-bio-item">
-                  <span className="bio-lbl">Sexo / Idade:</span>
-                  <strong>{sexoCalc} • {idadeCalc} anos</strong>
-                </div>
-                <div className="calc-bio-item">
-                  <span className="bio-lbl">Peso / Altura:</span>
-                  <strong>{pesoCalc} kg • {alturaCalc} cm</strong>
-                </div>
-                <div className="calc-bio-item">
-                  <span className="bio-lbl">IMC:</span>
-                  <span className="highlight-pill">{paciente.imc || (pesoCalc / ((alturaCalc/100)**2)).toFixed(1)}</span>
-                </div>
-              </div>
+      {activeTab === 'calculadora' && (
+        <div className="patient-calculator-tab-content animated-fade-in">
 
-              {/* Grid 2 Colunas: Configurações & Resultados */}
-              <div className="calc-main-grid">
-                
-                {/* Coluna 1: Parâmetros e Estratégia */}
-                <div className="calc-params-card">
-                  <h4 className="calc-card-title">
-                    <Flame size={18} className="icon-orange" /> 1. Parâmetros Energéticos
-                  </h4>
-
-                  <div className="form-group">
-                    <label className="form-label">Fórmula da Taxa Metabólica Basal (TMB)</label>
-                    <div className="modality-segmented-control">
-                      <button 
-                        type="button" 
-                        className={`btn-modality-opt ${calcFormula === 'mifflin' ? 'mod-opt-active' : ''}`}
-                        onClick={() => setCalcFormula('mifflin')}
-                      >
-                        Mifflin-St Jeor (Padrão)
-                      </button>
-                      <button 
-                        type="button" 
-                        className={`btn-modality-opt ${calcFormula === 'harris' ? 'mod-opt-active' : ''}`}
-                        onClick={() => setCalcFormula('harris')}
-                      >
-                        Harris-Benedict
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Nível de Atividade Física (Fator Atividade - FA)</label>
-                    <select 
-                      className="form-input"
-                      value={calcFatorAtividade}
-                      onChange={(e) => setCalcFatorAtividade(e.target.value)}
-                    >
-                      <option value="1.2">Sedentário (Pouco ou nenhum exercício) • 1.2</option>
-                      <option value="1.375">Levemente Ativo (Exercício 1-3 dias/semana) • 1.375</option>
-                      <option value="1.55">Moderadamente Ativo (Exercício 3-5 dias/semana) • 1.55</option>
-                      <option value="1.725">Muito Ativo (Exercício intenso 6-7 dias/semana) • 1.725</option>
-                      <option value="1.9">Extremamente Ativo (Atleta / Trabalho pesado) • 1.9</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Estratégia Nutricional / Meta Calórica</label>
-                    <select 
-                      className="form-input"
-                      value={calcEstrategia}
-                      onChange={(e) => setCalcEstrategia(e.target.value)}
-                    >
-                      <option value="deficit_moderado">📉 Emagrecimento (Déficit de -550 kcal/dia)</option>
-                      <option value="deficit_leve">📉 Emagrecimento Suave (Déficit de -350 kcal/dia)</option>
-                      <option value="deficit_agressivo">⚡ Emagrecimento Rápido (Déficit de -750 kcal/dia)</option>
-                      <option value="manutencao">⚖️ Manutenção de Peso (0 kcal)</option>
-                      <option value="superavit_leve">📈 Hipertrofia Moderada (+300 kcal/dia)</option>
-                      <option value="superavit_moderado">💪 Hipertrofia Alta (+500 kcal/dia)</option>
-                    </select>
-                  </div>
-
-                  <h4 className="calc-card-title" style={{ marginTop: '16px' }}>
-                    <Utensils size={18} className="icon-green" /> 2. Distribuição de Macronutrientes
-                  </h4>
-
-                  <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <label className="form-label" style={{ margin: 0 }}>Proteínas (g por kg de peso corporal)</label>
-                      <strong style={{ color: 'var(--primary-purple-light)' }}>{calcProteinaGKg} g/kg</strong>
-                    </div>
-                    <input 
-                      type="range"
-                      min="1.0"
-                      max="3.0"
-                      step="0.1"
-                      className="calc-range-slider"
-                      value={calcProteinaGKg}
-                      onChange={(e) => setCalcProteinaGKg(parseFloat(e.target.value))}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>1.0 g/kg (Básico)</span>
-                      <span>2.0 g/kg (Atleta)</span>
-                      <span>3.0 g/kg (Cutting)</span>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <label className="form-label" style={{ margin: 0 }}>Lipídios / Gorduras (% do VET)</label>
-                      <strong style={{ color: '#F59E0B' }}>{calcGorduraPerc}%</strong>
-                    </div>
-                    <input 
-                      type="range"
-                      min="15"
-                      max="40"
-                      step="1"
-                      className="calc-range-slider slider-orange"
-                      value={calcGorduraPerc}
-                      onChange={(e) => setCalcGorduraPerc(parseInt(e.target.value, 10))}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>15% (Low Fat)</span>
-                      <span>25% (Equilibrado)</span>
-                      <span>40% (Keto/Low Carb)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Coluna 2: Resultados e Resumo de Prescrição */}
-                <div className="calc-results-card">
-                  <h4 className="calc-card-title">
-                    <Activity size={18} className="icon-purple" /> Prescrição Energética Calculada
-                  </h4>
-
-                  <div className="calc-result-bubbles">
-                    <div className="calc-bubble">
-                      <span className="bubble-lbl">TMB Basal</span>
-                      <strong className="bubble-val">{tmbEscolhida}</strong>
-                      <span className="bubble-unit">kcal/dia</span>
-                    </div>
-
-                    <div className="calc-bubble">
-                      <span className="bubble-lbl">GET Total</span>
-                      <strong className="bubble-val">{getCalculado}</strong>
-                      <span className="bubble-unit">kcal/dia</span>
-                    </div>
-
-                    <div className="calc-bubble bubble-highlight">
-                      <span className="bubble-lbl">VET Prescrito</span>
-                      <strong className="bubble-val" style={{ color: '#10B981' }}>{vetCalculado}</strong>
-                      <span className="bubble-unit">kcal/dia</span>
-                    </div>
-                  </div>
-
-                  {/* Tabela de Macronutrientes */}
-                  <div className="calc-macros-table">
-                    <div className="macro-row macro-prot">
-                      <div className="macro-info">
-                        <span className="macro-dot dot-prot" />
-                        <div>
-                          <strong>Proteínas ({macrosCalculados.proteina.gkg} g/kg)</strong>
-                          <span className="macro-sub">{macrosCalculados.proteina.perc}% do valor diário</span>
-                        </div>
-                      </div>
-                      <div className="macro-val-group">
-                        <span className="macro-g">{macrosCalculados.proteina.g}g</span>
-                        <span className="macro-kcal">{macrosCalculados.proteina.kcal} kcal</span>
-                      </div>
-                    </div>
-
-                    <div className="macro-row macro-fat">
-                      <div className="macro-info">
-                        <span className="macro-dot dot-fat" />
-                        <div>
-                          <strong>Gorduras ({macrosCalculados.gordura.gkg} g/kg)</strong>
-                          <span className="macro-sub">{macrosCalculados.gordura.perc}% do valor diário</span>
-                        </div>
-                      </div>
-                      <div className="macro-val-group">
-                        <span className="macro-g">{macrosCalculados.gordura.g}g</span>
-                        <span className="macro-kcal">{macrosCalculados.gordura.kcal} kcal</span>
-                      </div>
-                    </div>
-
-                    <div className="macro-row macro-carb">
-                      <div className="macro-info">
-                        <span className="macro-dot dot-carb" />
-                        <div>
-                          <strong>Carboidratos ({macrosCalculados.carboidrato.gkg} g/kg)</strong>
-                          <span className="macro-sub">{macrosCalculados.carboidrato.perc}% do valor diário</span>
-                        </div>
-                      </div>
-                      <div className="macro-val-group">
-                        <span className="macro-g">{macrosCalculados.carboidrato.g}g</span>
-                        <span className="macro-kcal">{macrosCalculados.carboidrato.kcal} kcal</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Barra Visual de Distribuição de Macros */}
-                  <div className="macro-bar-container">
-                    <div className="macro-bar-segment seg-prot" style={{ width: `${macrosCalculados.proteina.perc}%` }} title={`Proteínas ${macrosCalculados.proteina.perc}%`} />
-                    <div className="macro-bar-segment seg-fat" style={{ width: `${macrosCalculados.gordura.perc}%` }} title={`Gorduras ${macrosCalculados.gordura.perc}%`} />
-                    <div className="macro-bar-segment seg-carb" style={{ width: `${macrosCalculados.carboidrato.perc}%` }} title={`Carboidratos ${macrosCalculados.carboidrato.perc}%`} />
-                  </div>
-
-                  {/* Ações de Compartilhamento / Cópia */}
-                  <div className="calc-actions-row">
-                    <button 
-                      type="button" 
-                      className={`btn-calc-action ${calcCopied ? 'btn-copied' : ''}`}
-                      onClick={handleCopiarPrescricao}
-                    >
-                      {calcCopied ? <><Check size={16} /> Copiado!</> : <><Copy size={16} /> Copiar Prescrição</>}
-                    </button>
-
-                    {paciente.telefone && (
-                      <a 
-                        href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Segue sua nova meta calórica e distribuição de macronutrientes calculada:\n\n🎯 *Meta Diária (VET):* ${vetCalculado} kcal\n🥩 *Proteínas:* ${macrosCalculados.proteina.g}g (${macrosCalculados.proteina.gkg}g/kg)\n🥑 *Gorduras:* ${macrosCalculados.gordura.g}g\n🍚 *Carboidratos:* ${macrosCalculados.carboidrato.g}g\n\nFoco no seu objetivo! 💪✨`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-calc-action btn-calc-wa"
-                      >
-                        <MessageCircle size={16} /> Enviar no WhatsApp
-                      </a>
-                    )}
-                  </div>
-
-                </div>
-
-              </div>
-
+          {/* Banner de Dados Biométricos Base */}
+          <div className="calc-summary-ribbon">
+            <div className="calc-bio-item">
+              <span className="bio-lbl">Paciente:</span>
+              <strong>{paciente.nome}</strong>
             </div>
-          )}
+            <div className="calc-bio-item">
+              <span className="bio-lbl">Sexo / Idade:</span>
+              <strong>{sexoCalc} • {idadeCalc} anos</strong>
+            </div>
+            <div className="calc-bio-item">
+              <span className="bio-lbl">Peso / Altura:</span>
+              <strong>{pesoCalc} kg • {alturaCalc} cm</strong>
+            </div>
+            <div className="calc-bio-item">
+              <span className="bio-lbl">IMC:</span>
+              <span className="highlight-pill">{paciente.imc || (pesoCalc / ((alturaCalc / 100) ** 2)).toFixed(1)}</span>
+            </div>
+          </div>
 
+          {/* Grid 2 Colunas: Configurações & Resultados */}
+          <div className="calc-main-grid">
 
-        </div>
+            {/* Coluna 1: Parâmetros e Estratégia */}
+            <div className="calc-params-card">
+              <h4 className="calc-card-title">
+                <Flame size={18} className="icon-orange" /> 1. Parâmetros Energéticos
+              </h4>
 
-        {/* Modal de Pré-Visualização de Anexo (Imagem ou PDF/Doc) */}
-        {previewingAnexo && (
-          <div className="file-preview-modal-backdrop" onClick={() => setPreviewingAnexo(null)}>
-            <div className="file-preview-card" onClick={(e) => e.stopPropagation()}>
-              <div className="preview-header">
-                <div className="preview-title-wrap">
-                  {getFileIcon(previewingAnexo.tipo, previewingAnexo.nome)}
-                  <div>
-                    <h4 className="preview-name">{previewingAnexo.nome}</h4>
-                    <span className="preview-sub">{previewingAnexo.categoria} • {formatFileSize(previewingAnexo.tamanho)}</span>
-                  </div>
-                </div>
-                <div className="preview-actions">
-                  {previewingAnexo.dataUrl && (
-                    <a 
-                      href={previewingAnexo.dataUrl} 
-                      download={previewingAnexo.nome}
-                      className="btn-download-preview"
-                    >
-                      <Download size={16} /> Baixar
-                    </a>
-                  )}
-                  <button 
-                    type="button" 
-                    className="btn-close-preview"
-                    onClick={() => setPreviewingAnexo(null)}
+              <div className="form-group">
+                <label className="form-label">Fórmula da Taxa Metabólica Basal (TMB)</label>
+                <div className="modality-segmented-control">
+                  <button
+                    type="button"
+                    className={`btn-modality-opt ${calcFormula === 'mifflin' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setCalcFormula('mifflin')}
                   >
-                    <X size={20} />
+                    Mifflin-St Jeor (Padrão)
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-modality-opt ${calcFormula === 'harris' ? 'mod-opt-active' : ''}`}
+                    onClick={() => setCalcFormula('harris')}
+                  >
+                    Harris-Benedict
                   </button>
                 </div>
               </div>
 
-              <div className="preview-body">
-                {previewingAnexo.tipo?.startsWith('image/') ? (
-                  <img src={previewingAnexo.dataUrl} alt={previewingAnexo.nome} className="preview-full-image" />
-                ) : previewingAnexo.tipo?.includes('pdf') ? (
-                  <iframe src={previewingAnexo.dataUrl} title={previewingAnexo.nome} className="preview-pdf-frame" />
-                ) : (
-                  <div className="preview-unsupported">
-                    <File size={48} className="icon-purple" />
-                    <h4>Pré-visualização direta não disponível para este formato</h4>
-                    <p>O arquivo está íntegro e salvo com segurança. Você pode baixá-lo no seu computador.</p>
-                    <a href={previewingAnexo.dataUrl} download={previewingAnexo.nome} className="btn-primary" style={{ marginTop: '12px' }}>
-                      <Download size={16} /> Baixar {previewingAnexo.nome}
-                    </a>
-                  </div>
-                )}
+              <div className="form-group">
+                <label className="form-label">Nível de Atividade Física (Fator Atividade - FA)</label>
+                <select
+                  className="form-input"
+                  value={calcFatorAtividade}
+                  onChange={(e) => setCalcFatorAtividade(e.target.value)}
+                >
+                  <option value="1.2">Sedentário (Pouco ou nenhum exercício) • 1.2</option>
+                  <option value="1.375">Levemente Ativo (Exercício 1-3 dias/semana) • 1.375</option>
+                  <option value="1.55">Moderadamente Ativo (Exercício 3-5 dias/semana) • 1.55</option>
+                  <option value="1.725">Muito Ativo (Exercício intenso 6-7 dias/semana) • 1.725</option>
+                  <option value="1.9">Extremamente Ativo (Atleta / Trabalho pesado) • 1.9</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Estratégia Nutricional / Meta Calórica</label>
+                <select
+                  className="form-input"
+                  value={calcEstrategia}
+                  onChange={(e) => setCalcEstrategia(e.target.value)}
+                >
+                  <option value="deficit_moderado">📉 Emagrecimento (Déficit de -550 kcal/dia)</option>
+                  <option value="deficit_leve">📉 Emagrecimento Suave (Déficit de -350 kcal/dia)</option>
+                  <option value="deficit_agressivo">⚡ Emagrecimento Rápido (Déficit de -750 kcal/dia)</option>
+                  <option value="manutencao">⚖️ Manutenção de Peso (0 kcal)</option>
+                  <option value="superavit_leve">📈 Hipertrofia Moderada (+300 kcal/dia)</option>
+                  <option value="superavit_moderado">💪 Hipertrofia Alta (+500 kcal/dia)</option>
+                </select>
+              </div>
+
+              <h4 className="calc-card-title" style={{ marginTop: '16px' }}>
+                <Utensils size={18} className="icon-green" /> 2. Distribuição de Macronutrientes
+              </h4>
+
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Proteínas (g por kg de peso corporal)</label>
+                  <strong style={{ color: 'var(--primary-purple-light)' }}>{calcProteinaGKg} g/kg</strong>
+                </div>
+                <input
+                  type="range"
+                  min="1.0"
+                  max="3.0"
+                  step="0.1"
+                  className="calc-range-slider"
+                  value={calcProteinaGKg}
+                  onChange={(e) => setCalcProteinaGKg(parseFloat(e.target.value))}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span>1.0 g/kg (Básico)</span>
+                  <span>2.0 g/kg (Atleta)</span>
+                  <span>3.0 g/kg (Cutting)</span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Lipídios / Gorduras (% do VET)</label>
+                  <strong style={{ color: '#F59E0B' }}>{calcGorduraPerc}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="15"
+                  max="40"
+                  step="1"
+                  className="calc-range-slider slider-orange"
+                  value={calcGorduraPerc}
+                  onChange={(e) => setCalcGorduraPerc(parseInt(e.target.value, 10))}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span>15% (Low Fat)</span>
+                  <span>25% (Equilibrado)</span>
+                  <span>40% (Keto/Low Carb)</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-      </div>
+            {/* Coluna 2: Resultados e Resumo de Prescrição */}
+            <div className="calc-results-card">
+              <h4 className="calc-card-title">
+                <Activity size={18} className="icon-purple" /> Prescrição Energética Calculada
+              </h4>
+
+              <div className="calc-result-bubbles">
+                <div className="calc-bubble">
+                  <span className="bubble-lbl">TMB Basal</span>
+                  <strong className="bubble-val">{tmbEscolhida}</strong>
+                  <span className="bubble-unit">kcal/dia</span>
+                </div>
+
+                <div className="calc-bubble">
+                  <span className="bubble-lbl">GET Total</span>
+                  <strong className="bubble-val">{getCalculado}</strong>
+                  <span className="bubble-unit">kcal/dia</span>
+                </div>
+
+                <div className="calc-bubble bubble-highlight">
+                  <span className="bubble-lbl">VET Prescrito</span>
+                  <strong className="bubble-val" style={{ color: '#10B981' }}>{vetCalculado}</strong>
+                  <span className="bubble-unit">kcal/dia</span>
+                </div>
+              </div>
+
+              {/* Tabela de Macronutrientes */}
+              <div className="calc-macros-table">
+                <div className="macro-row macro-prot">
+                  <div className="macro-info">
+                    <span className="macro-dot dot-prot" />
+                    <div>
+                      <strong>Proteínas ({macrosCalculados.proteina.gkg} g/kg)</strong>
+                      <span className="macro-sub">{macrosCalculados.proteina.perc}% do valor diário</span>
+                    </div>
+                  </div>
+                  <div className="macro-val-group">
+                    <span className="macro-g">{macrosCalculados.proteina.g}g</span>
+                    <span className="macro-kcal">{macrosCalculados.proteina.kcal} kcal</span>
+                  </div>
+                </div>
+
+                <div className="macro-row macro-fat">
+                  <div className="macro-info">
+                    <span className="macro-dot dot-fat" />
+                    <div>
+                      <strong>Gorduras ({macrosCalculados.gordura.gkg} g/kg)</strong>
+                      <span className="macro-sub">{macrosCalculados.gordura.perc}% do valor diário</span>
+                    </div>
+                  </div>
+                  <div className="macro-val-group">
+                    <span className="macro-g">{macrosCalculados.gordura.g}g</span>
+                    <span className="macro-kcal">{macrosCalculados.gordura.kcal} kcal</span>
+                  </div>
+                </div>
+
+                <div className="macro-row macro-carb">
+                  <div className="macro-info">
+                    <span className="macro-dot dot-carb" />
+                    <div>
+                      <strong>Carboidratos ({macrosCalculados.carboidrato.gkg} g/kg)</strong>
+                      <span className="macro-sub">{macrosCalculados.carboidrato.perc}% do valor diário</span>
+                    </div>
+                  </div>
+                  <div className="macro-val-group">
+                    <span className="macro-g">{macrosCalculados.carboidrato.g}g</span>
+                    <span className="macro-kcal">{macrosCalculados.carboidrato.kcal} kcal</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra Visual de Distribuição de Macros */}
+              <div className="macro-bar-container">
+                <div className="macro-bar-segment seg-prot" style={{ width: `${macrosCalculados.proteina.perc}%` }} title={`Proteínas ${macrosCalculados.proteina.perc}%`} />
+                <div className="macro-bar-segment seg-fat" style={{ width: `${macrosCalculados.gordura.perc}%` }} title={`Gorduras ${macrosCalculados.gordura.perc}%`} />
+                <div className="macro-bar-segment seg-carb" style={{ width: `${macrosCalculados.carboidrato.perc}%` }} title={`Carboidratos ${macrosCalculados.carboidrato.perc}%`} />
+              </div>
+
+              {/* Ações de Compartilhamento / Cópia */}
+              <div className="calc-actions-row">
+                <button
+                  type="button"
+                  className={`btn-calc-action ${calcCopied ? 'btn-copied' : ''}`}
+                  onClick={handleCopiarPrescricao}
+                >
+                  {calcCopied ? <><Check size={16} /> Copiado!</> : <><Copy size={16} /> Copiar Prescrição</>}
+                </button>
+
+                {paciente.telefone && (
+                  <a
+                    href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Segue sua nova meta calórica e distribuição de macronutrientes calculada:\n\n🎯 *Meta Diária (VET):* ${vetCalculado} kcal\n🥩 *Proteínas:* ${macrosCalculados.proteina.g}g (${macrosCalculados.proteina.gkg}g/kg)\n🥑 *Gorduras:* ${macrosCalculados.gordura.g}g\n🍚 *Carboidratos:* ${macrosCalculados.carboidrato.g}g\n\nFoco no seu objetivo! 💪✨`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-calc-action btn-calc-wa"
+                  >
+                    <MessageCircle size={16} /> Enviar no WhatsApp
+                  </a>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+
     </div>
+
+        {/* Modal de Nova Consulta Clínica (Prompt 5) */ }
+  {
+    showNovaConsultaModal && (
+      <div className="file-preview-modal-backdrop" onClick={() => setShowNovaConsultaModal(false)}>
+        <div className="modal-card-sub popup-form-card animated-scale-in" onClick={(e) => e.stopPropagation()}>
+          <div className="submodal-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PlusCircle size={20} className="icon-purple" />
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Registrar Nova Consulta Clínica</h3>
+            </div>
+            <button type="button" className="btn-modal-close" onClick={() => setShowNovaConsultaModal(false)}>
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSalvarNovaConsulta} className="submodal-form">
+            <p className="submodal-desc">
+              Registre a avaliação de retorno de <strong>{paciente.nome}</strong> com atualização automática da curva de evolução.
+            </p>
+
+            <div className="form-row grid-2">
+              <div className="form-group">
+                <label className="form-label">Data da Consulta *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={ncData}
+                  onChange={(e) => setNcData(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Peso Atual (kg) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="form-input"
+                  placeholder="Ex: 78.5"
+                  value={ncPeso}
+                  onChange={(e) => setNcPeso(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="form-row grid-3">
+              <div className="form-group">
+                <label className="form-label">Cintura (cm)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="form-input"
+                  placeholder="Ex: 88"
+                  value={ncCintura}
+                  onChange={(e) => setNcCintura(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Quadril (cm)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="form-input"
+                  placeholder="Ex: 102"
+                  value={ncQuadril}
+                  onChange={(e) => setNcQuadril(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">% de Gordura (BF)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="form-input"
+                  placeholder="Ex: 24.5"
+                  value={ncGordura}
+                  onChange={(e) => setNcGordura(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Observações Clínicas & Conduta</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder="Ex: Paciente relatou melhora na adesão. Aumentada proteína no pós-treino e prescrito novo plano alimentar."
+                value={ncObs}
+                onChange={(e) => setNcObs(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Próximo Retorno (Opcional - Agenda Automaticamente)</label>
+              <input
+                type="date"
+                className="form-input"
+                value={ncRetorno}
+                onChange={(e) => setNcRetorno(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowNovaConsultaModal(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary" disabled={submitting || !ncPeso}>
+                <CheckCircle size={16} /> Salvar Consulta
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  {/* Modal de Visualização do Plano Alimentar Completo (Prompt 5) */ }
+  {
+    selectedPlano && (
+      <div className="file-preview-modal-backdrop" onClick={() => setSelectedPlano(null)}>
+        <div className="modal-card-sub plano-details-modal-card animated-scale-in" onClick={(e) => e.stopPropagation()}>
+          <div className="submodal-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UtensilsCrossed size={20} className="icon-green" />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>{selectedPlano.titulo}</h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Prescrição de {new Date(selectedPlano.dataGeracao || selectedPlano.created_at).toLocaleDateString('pt-BR')} • {paciente.nome}
+                </span>
+              </div>
+            </div>
+            <button type="button" className="btn-modal-close" onClick={() => setSelectedPlano(null)}>
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="plano-details-body">
+            {/* Banner de Calorias & Macros */}
+            <div className="plano-vet-ribbon">
+              <div className="vet-item">
+                <span className="vet-lbl">Meta Calórica Diária</span>
+                <strong className="vet-num">{selectedPlano.caloriasTotais} kcal</strong>
+              </div>
+              {selectedPlano.macros && (
+                <div className="vet-macros">
+                  <span className="macro-tag tag-p">Proteína: {selectedPlano.macros.proteina}</span>
+                  <span className="macro-tag tag-g">Gordura: {selectedPlano.macros.gordura}</span>
+                  <span className="macro-tag tag-c">Carboidrato: {selectedPlano.macros.carboidrato}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Lista de Refeições */}
+            <h4 style={{ margin: '14px 0 8px 0', fontSize: '0.92rem', fontWeight: 800 }}>
+              <Coffee size={16} className="icon-orange" /> Refeições e Horários Sugeridos
+            </h4>
+
+            <div className="refeicoes-timeline">
+              {Array.isArray(selectedPlano.refeicoes) && selectedPlano.refeicoes.length > 0 ? (
+                selectedPlano.refeicoes.map((ref, idx) => (
+                  <div key={idx} className="refeicao-item-card">
+                    <div className="refeicao-item-time">
+                      <Clock size={13} />
+                      <span>{ref.horario || 'Horário flexível'}</span>
+                    </div>
+                    <div className="refeicao-item-content">
+                      <h5 className="refeicao-name">{ref.nome}</h5>
+                      <p className="refeicao-desc">{ref.alimentos}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-refeicoes-box">
+                  <p>Cardápio individualizado calculado com base na meta de {selectedPlano.caloriasTotais} kcal.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Orientações Gerais */}
+            {selectedPlano.orientacoesGerais && (
+              <div className="plano-orientacoes-box">
+                <h5 style={{ margin: '0 0 4px 0', fontSize: '0.85rem', fontWeight: 700 }}>💡 Orientações Clínicas Gerais</h5>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedPlano.orientacoesGerais}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="submodal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+            <button type="button" className="btn-secondary" onClick={() => setSelectedPlano(null)}>
+              Fechar
+            </button>
+            {paciente.telefone && (
+              <a
+                href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Segue o seu plano alimentar prescrito:\n\n📋 *${selectedPlano.titulo}*\n⚡ *Meta:* ${selectedPlano.caloriasTotais} kcal/dia\n\n${(selectedPlano.refeicoes || []).map(r => `🍽️ *${r.nome}* (${r.horario}):\n${r.alimentos}`).join('\n\n')}\n\n💡 *Orientações:* ${selectedPlano.orientacoesGerais || 'Hidratação constante!'}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary"
+                style={{ background: '#10B981', borderColor: '#10B981' }}
+              >
+                <MessageCircle size={16} /> Enviar no WhatsApp do Paciente
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  {/* Modal de Gerar Novo Plano Alimentar (Prompt 5) */ }
+  {
+    showGerarPlanoModal && (
+      <div className="file-preview-modal-backdrop" onClick={() => setShowGerarPlanoModal(false)}>
+        <div className="modal-card-sub popup-form-card animated-scale-in" onClick={(e) => e.stopPropagation()}>
+          <div className="submodal-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={20} className="icon-green" />
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Gerar Plano Alimentar</h3>
+            </div>
+            <button type="button" className="btn-modal-close" onClick={() => setShowGerarPlanoModal(false)}>
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSalvarNovoPlano} className="submodal-form">
+            <div className="plan-ai-notice-box">
+              <Sparkles size={18} className="icon-green" />
+              <div>
+                <h5 style={{ margin: '0 0 2px 0', fontSize: '0.85rem', fontWeight: 800 }}>Módulo de Geração Inteligente</h5>
+                <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                  Personalize os parâmetros nutricionais abaixo para salvar este plano no prontuário de {paciente.nome}.
+                </p>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Título do Plano Alimentar *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: Plano de Déficit Calórico & Saciedade"
+                value={novoPlanoTitulo}
+                onChange={(e) => setNovoPlanoTitulo(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-row grid-2">
+              <div className="form-group">
+                <label className="form-label">Calorias Totais (VET kcal/dia) *</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={novoPlanoCalorias}
+                  onChange={(e) => setNovoPlanoCalorias(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Meta de Proteínas</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: 130g (28%)"
+                  value={novoPlanoProt}
+                  onChange={(e) => setNovoPlanoProt(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-row grid-2">
+              <div className="form-group">
+                <label className="form-label">Meta de Gorduras</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: 50g (25%)"
+                  value={novoPlanoGord}
+                  onChange={(e) => setNovoPlanoGord(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Meta de Carboidratos</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: 195g (47%)"
+                  value={novoPlanoCarb}
+                  onChange={(e) => setNovoPlanoCarb(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Orientações Nutricionais Gerais</label>
+              <textarea
+                className="form-input"
+                rows={2}
+                placeholder="Ex: Ingerir no mínimo 2.5L de água por dia. Priorizar vegetais e proteínas magras."
+                value={novoPlanoObs}
+                onChange={(e) => setNovoPlanoObs(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowGerarPlanoModal(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                <CheckCircle size={16} /> Salvar Plano Alimentar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  {/* Modal de Pré-Visualização de Anexo (Imagem ou PDF/Doc) */ }
+  {
+    previewingAnexo && (
+      <div className="file-preview-modal-backdrop" onClick={() => setPreviewingAnexo(null)}>
+        <div className="file-preview-card" onClick={(e) => e.stopPropagation()}>
+          <div className="preview-header">
+            <div className="preview-title-wrap">
+              {getFileIcon(previewingAnexo.tipo, previewingAnexo.nome)}
+              <div>
+                <h4 className="preview-name">{previewingAnexo.nome}</h4>
+                <span className="preview-sub">{previewingAnexo.categoria} • {formatFileSize(previewingAnexo.tamanho)}</span>
+              </div>
+            </div>
+            <div className="preview-actions">
+              {previewingAnexo.dataUrl && (
+                <a
+                  href={previewingAnexo.dataUrl}
+                  download={previewingAnexo.nome}
+                  className="btn-download-preview"
+                >
+                  <Download size={16} /> Baixar
+                </a>
+              )}
+              <button
+                type="button"
+                className="btn-close-preview"
+                onClick={() => setPreviewingAnexo(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="preview-body">
+            {previewingAnexo.tipo?.startsWith('image/') ? (
+              <img src={previewingAnexo.dataUrl} alt={previewingAnexo.nome} className="preview-full-image" />
+            ) : previewingAnexo.tipo?.includes('pdf') ? (
+              <iframe src={previewingAnexo.dataUrl} title={previewingAnexo.nome} className="preview-pdf-frame" />
+            ) : (
+              <div className="preview-unsupported">
+                <File size={48} className="icon-purple" />
+                <h4>Pré-visualização direta não disponível para este formato</h4>
+                <p>O arquivo está íntegro e salvo com segurança. Você pode baixá-lo no seu computador.</p>
+                <a href={previewingAnexo.dataUrl} download={previewingAnexo.nome} className="btn-primary" style={{ marginTop: '12px' }}>
+                  <Download size={16} /> Baixar {previewingAnexo.nome}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+      </div >
+    </div >
   );
 }
