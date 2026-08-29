@@ -1041,6 +1041,52 @@ export async function agendarConsulta({
 }
 
 /**
+ * Retorna todas as consultas de um paciente específico (histórico e futuras)
+ */
+export async function getConsultasDoPaciente(pacienteId, nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+  return consultas
+    .filter(c => c.paciente_id === pacienteId && c.status !== 'cancelada')
+    .sort((a, b) => new Date(b.data_consulta) - new Date(a.data_consulta));
+}
+
+/**
+ * Atualiza qualquer dado da consulta (horário, tipo, modalidade, teleconsulta, confirmação)
+ */
+export async function atualizarConsulta(consultaId, dadosAtualizados, nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+  
+  // Se estiver alterando a data/horário, verificar conflito (ignorando a consulta atual)
+  if (dadosAtualizados.data_consulta) {
+    const conflito = await verificarConflitoHorario(dadosAtualizados.data_consulta, nutricionistaId, consultaId);
+    if (conflito && !dadosAtualizados.forcarEncaixe) {
+      const dConf = new Date(conflito.data_consulta);
+      const horaConf = dConf.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dataConf = dConf.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const erro = new Error(`Horário Ocupado: O paciente "${conflito.paciente_nome}" já está agendado para ${dataConf} às ${horaConf}.`);
+      erro.isConflict = true;
+      erro.conflito = conflito;
+      throw erro;
+    }
+  }
+
+  const updated = consultas.map(c => {
+    if (c.id === consultaId) {
+      return {
+        ...c,
+        ...dadosAtualizados,
+        status: dadosAtualizados.confirmacao === 'confirmado' ? 'confirmada' : (dadosAtualizados.status || c.status)
+      };
+    }
+    return c;
+  });
+
+  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return updated.find(c => c.id === consultaId);
+}
+
+/**
  * Alterna o status de confirmação da consulta (ex: 'pendente' <-> 'confirmado')
  */
 export async function alternarConfirmacaoConsulta(consultaId, nutricionistaId) {
@@ -1060,6 +1106,8 @@ export async function alternarConfirmacaoConsulta(consultaId, nutricionistaId) {
   notifyDatabaseChange();
   return updated.find(c => c.id === consultaId);
 }
+
+
 
 
 export async function agendarRetornoRapido(paciente, nutricionistaId) {

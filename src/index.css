@@ -7178,6 +7178,518 @@ body {
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
 }
 
+/* =========================================================================
+   ESTILOS DE CONSULTAS & REAGENDAMENTO NA PASTA DO PACIENTE
+   ========================================================================= */
+
+.patient-consultas-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.edit-consulta-box-card {
+  background: var(--card-bg);
+  border: 1px solid var(--primary-purple);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
+}
+
+[data-theme="dark"] .edit-consulta-box-card {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.edit-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.patient-appts-list-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+[data-theme="dark"] .patient-appts-list-card {
+  background: rgba(10, 15, 29, 0.65);
+}
+
+.appts-list-header {
+  margin-bottom: 12px;
+}
+
+.appts-list-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.appts-list-subtitle {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.patient-appts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.patient-appt-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  gap: 12px;
+  transition: all var(--transition-fast);
+}
+
+[data-theme="dark"] .patient-appt-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.patient-appt-item.item-confirmed {
+  border-left: 3px solid #10B981;
+}
+
+.patient-appt-item.item-pending {
+  border-left: 3px solid #F59E0B;
+}
+
+.patient-appt-item.item-completed {
+  opacity: 0.68;
+}
+
+.item-left-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-datetime-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--primary-purple-light);
+}
+
+.item-type-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.item-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.item-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-item-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+[data-theme="dark"] .btn-item-action {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-item-action:hover {
+  transform: translateY(-1px);
+}
+
+.btn-item-video {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #3B82F6 !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.btn-item-video:hover {
+  background: #3B82F6 !important;
+  color: white !important;
+}
+
+.btn-item-wa {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #10B981 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-item-wa:hover {
+  background: #10B981 !important;
+  color: white !important;
+}
+
+.btn-item-edit {
+  background: rgba(124, 58, 237, 0.15) !important;
+  color: var(--primary-purple-light) !important;
+  border-color: rgba(124, 58, 237, 0.3) !important;
+}
+
+.btn-item-edit:hover {
+  background: var(--primary-purple) !important;
+  color: white !important;
+}
+
+.btn-item-check {
+  color: var(--text-muted);
+}
+
+.btn-item-check:hover {
+  color: #10B981;
+  border-color: #10B981;
+}
+
+.btn-item-check-done {
+  background: #10B981 !important;
+  color: white !important;
+  border-color: #10B981 !important;
+}
+
+.btn-item-del:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #EF4444 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.empty-patient-appts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--card-border);
+  border-radius: var(--radius-md);
+}
+
+.empty-patient-appts h4 {
+  margin: 8px 0 4px 0;
+  font-size: 0.95rem;
+}
+
+.empty-patient-appts p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.new-appointment-subcard {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+[data-theme="dark"] .new-appointment-subcard {
+  background: rgba(10, 15, 29, 0.65);
+}
+
+.subcard-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.subcard-header h4 {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 800;
+}
+
+/* =========================================================================
+   ESTILOS DA CALCULADORA NUTRICIONAL & METAS (TMB/GET/MACROS)
+   ========================================================================= */
+
+.patient-calculator-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calc-summary-ribbon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  background: var(--input-bg);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+}
+
+[data-theme="dark"] .calc-summary-ribbon {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.calc-bio-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bio-lbl {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.calc-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .calc-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calc-params-card, .calc-results-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+[data-theme="dark"] .calc-params-card, 
+[data-theme="dark"] .calc-results-card {
+  background: rgba(10, 15, 29, 0.65);
+}
+
+.calc-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.calc-range-slider {
+  width: 100%;
+  accent-color: var(--primary-purple);
+  cursor: pointer;
+}
+
+.slider-orange {
+  accent-color: #F59E0B !important;
+}
+
+.calc-result-bubbles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.calc-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  text-align: center;
+}
+
+[data-theme="dark"] .calc-bubble {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.calc-bubble.bubble-highlight {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.bubble-lbl {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.bubble-val {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin: 2px 0;
+}
+
+.bubble-unit {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.calc-macros-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.macro-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+}
+
+[data-theme="dark"] .macro-row {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.macro-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.macro-info strong {
+  font-size: 0.82rem;
+}
+
+.macro-sub {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.macro-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-prot { background: var(--primary-purple); }
+.dot-fat { background: #F59E0B; }
+.dot-carb { background: #3B82F6; }
+
+.macro-val-group {
+  text-align: right;
+}
+
+.macro-g {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.macro-kcal {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.macro-bar-container {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.macro-bar-segment {
+  height: 100%;
+  transition: width var(--transition-fast);
+}
+
+.seg-prot { background: var(--primary-purple); }
+.seg-fat { background: #F59E0B; }
+.seg-carb { background: #3B82F6; }
+
+.calc-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-calc-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--card-border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.btn-calc-action:hover {
+  transform: translateY(-1px);
+}
+
+.btn-calc-action.btn-copied {
+  background: #10B981 !important;
+  color: white !important;
+  border-color: #10B981 !important;
+}
+
+.btn-calc-wa {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #10B981 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-calc-wa:hover {
+  background: #10B981 !important;
+  color: white !important;
+}
+
+
 
 
 

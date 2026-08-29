@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   X, 
   Calendar, 
@@ -36,7 +36,18 @@ import {
   Image as ImageIcon,
   FileArchive,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Video,
+  MapPin,
+  UserCheck,
+  HelpCircle,
+  Calculator,
+  Utensils,
+  MessageCircle,
+  Copy,
+  RotateCcw,
+  CalendarDays,
+  Link as LinkIcon
 } from 'lucide-react';
 import { 
   agendarConsulta, 
@@ -44,7 +55,13 @@ import {
   atualizarPaciente, 
   excluirPaciente,
   anexarArquivoPaciente,
-  removerArquivoPaciente
+  removerArquivoPaciente,
+  getConsultasDoPaciente,
+  atualizarConsulta,
+  alternarConfirmacaoConsulta,
+  desmarcarConsulta,
+  verificarConflitoHorario,
+  atualizarStatusConsulta
 } from '../services/dashboardService';
 
 export default function PatientProfileModal({ 
@@ -53,15 +70,47 @@ export default function PatientProfileModal({
   onActionSuccess, 
   nutricionistaId 
 }) {
-  const [activeTab, setActiveTab] = useState('evolucao'); // 'evolucao' | 'prontuario' | 'anexos' | 'nova-medicao' | 'agendar'
+  const [activeTab, setActiveTab] = useState('evolucao'); // 'evolucao' | 'prontuario' | 'anexos' | 'consultas' | 'calculadora' | 'nova-medicao'
   const [selectedMetric, setSelectedMetric] = useState('peso'); // 'peso' | 'gordura' | 'massaMagra' | 'cintura' | 'adesao'
 
-  // Estado para agendamento
-  const [dataConsulta, setDataConsulta] = useState('');
-  const [tipoConsulta, setTipoConsulta] = useState('Consulta de Retorno');
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // ----------------------------------------------------
+  // ESTADO PARA CONSULTAS & AGENDAMENTOS DO PACIENTE
+  // ----------------------------------------------------
+  const [consultasPaciente, setConsultasPaciente] = useState([]);
+  const [loadingConsultas, setLoadingConsultas] = useState(false);
+  
+  // Edição de consulta existente
+  const [editingConsultaId, setEditingConsultaId] = useState(null);
+  const [editConsultaData, setEditConsultaData] = useState('');
+  const [editConsultaHora, setEditConsultaHora] = useState('');
+  const [editConsultaTipo, setEditConsultaTipo] = useState('Consulta de Retorno');
+  const [editConsultaModalidade, setEditConsultaModalidade] = useState('presencial');
+  const [editConsultaLink, setEditConsultaLink] = useState('');
+  const [editConsultaConfirmacao, setEditConsultaConfirmacao] = useState('confirmado');
+  const [editConflict, setEditConflict] = useState(null);
+
+  // Novo agendamento de retorno
+  const [novoData, setNovoData] = useState(new Date().toISOString().split('T')[0]);
+  const [novoHora, setNovoHora] = useState('10:00');
+  const [novoTipo, setNovoTipo] = useState('Consulta de Retorno');
+  const [novoModalidade, setNovoModalidade] = useState('presencial');
+  const [novoLink, setNovoLink] = useState('');
+  const [novoConfirmacao, setNovoConfirmacao] = useState('confirmado');
+  const [novoConflict, setNovoConflict] = useState(null);
+
+  // ----------------------------------------------------
+  // ESTADO PARA CALCULADORA NUTRICIONAL & METAS (TMB/GET)
+  // ----------------------------------------------------
+  const [calcFatorAtividade, setCalcFatorAtividade] = useState('1.375'); // 1.2, 1.375, 1.55, 1.725, 1.9
+  const [calcEstrategia, setCalcEstrategia] = useState('deficit_moderado'); // 'deficit_leve', 'deficit_moderado', 'manutencao', 'superavit_leve', 'superavit_moderado'
+  const [calcProteinaGKg, setCalcProteinaGKg] = useState(1.8);
+  const [calcGorduraPerc, setCalcGorduraPerc] = useState(25);
+  const [calcFormula, setCalcFormula] = useState('mifflin'); // 'mifflin' | 'harris'
+  const [calcCopied, setCalcCopied] = useState(false);
 
   // Estado para nova medição
   const [novoPeso, setNovoPeso] = useState(paciente?.pesoAtual || '');
@@ -116,6 +165,58 @@ export default function PatientProfileModal({
   const [previewingAnexo, setPreviewingAnexo] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Carregar consultas do paciente
+  const carregarConsultasPaciente = async () => {
+    if (!paciente?.id) return;
+    setLoadingConsultas(true);
+    try {
+      const data = await getConsultasDoPaciente(paciente.id, nutricionistaId);
+      setConsultasPaciente(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingConsultas(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarConsultasPaciente();
+  }, [paciente?.id, nutricionistaId]);
+
+  // Checagem de Conflito em tempo real para NOVO agendamento
+  useEffect(() => {
+    if (!novoData || !novoHora) return;
+    const check = async () => {
+      try {
+        const [h, m] = novoHora.split(':');
+        const d = new Date(novoData);
+        d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+        const conflito = await verificarConflitoHorario(d.toISOString(), nutricionistaId);
+        setNovoConflict(conflito);
+      } catch {
+        setNovoConflict(null);
+      }
+    };
+    check();
+  }, [novoData, novoHora, nutricionistaId]);
+
+  // Checagem de Conflito em tempo real para EDIÇÃO de agendamento
+  useEffect(() => {
+    if (!editingConsultaId || !editConsultaData || !editConsultaHora) return;
+    const check = async () => {
+      try {
+        const [h, m] = editConsultaHora.split(':');
+        const d = new Date(editConsultaData);
+        d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+        const conflito = await verificarConflitoHorario(d.toISOString(), nutricionistaId, editingConsultaId);
+        setEditConflict(conflito);
+      } catch {
+        setEditConflict(null);
+      }
+    };
+    check();
+  }, [editingConsultaId, editConsultaData, editConsultaHora, nutricionistaId]);
+
   if (!paciente) return null;
 
   const historico = paciente.historicoEvolucao && paciente.historicoEvolucao.length > 0 
@@ -125,58 +226,133 @@ export default function PatientProfileModal({
         { data: paciente.ultima_consulta || new Date().toISOString(), peso: paciente.pesoAtual || 72, gordura: paciente.gorduraAtual || 22, massaMagra: 31, cintura: 80, adesao: 90, notas: 'Acompanhamento' }
       ];
 
-  // Agendamento
-  const handleSchedule = async (e) => {
+  // Iniciar edição de uma consulta
+  const handleStartEditConsulta = (consulta) => {
+    setEditingConsultaId(consulta.id);
+    const d = new Date(consulta.data_consulta);
+    const isoDate = d.toISOString().split('T')[0];
+    const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    setEditConsultaData(isoDate);
+    setEditConsultaHora(hora);
+    setEditConsultaTipo(consulta.tipo || 'Consulta de Retorno');
+    setEditConsultaModalidade(consulta.modalidade || 'presencial');
+    setEditConsultaLink(consulta.linkTeleconsulta || '');
+    setEditConsultaConfirmacao(consulta.confirmacao || 'confirmado');
+    setEditConflict(null);
+  };
+
+  const handleCancelEditConsulta = () => {
+    setEditingConsultaId(null);
+    setEditConflict(null);
+  };
+
+  // Salvar Edição de Consulta
+  const handleSalvarEdicaoConsulta = async (e) => {
     e.preventDefault();
-    if (!dataConsulta) return;
+    if (!editingConsultaId || !editConsultaData || !editConsultaHora) return;
+
+    if (editConflict) {
+      setErrorMsg(`Horário Ocupado: O paciente "${editConflict.paciente_nome}" já está agendado neste horário.`);
+      return;
+    }
 
     setSubmitting(true);
     setErrorMsg('');
     try {
-      await agendarConsulta({
-        pacienteId: paciente.id,
-        pacienteNome: paciente.nome,
-        dataConsulta: new Date(dataConsulta).toISOString(),
-        tipo: tipoConsulta
+      const [h, m] = editConsultaHora.split(':');
+      const d = new Date(editConsultaData);
+      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+
+      await atualizarConsulta(editingConsultaId, {
+        data_consulta: d.toISOString(),
+        tipo: editConsultaTipo,
+        modalidade: editConsultaModalidade,
+        linkTeleconsulta: editConsultaLink,
+        confirmacao: editConsultaConfirmacao
       }, nutricionistaId);
 
-      setSuccessMsg('Consulta de retorno agendada com sucesso!');
-      setTimeout(() => {
-        if (onActionSuccess) onActionSuccess();
-        onClose();
-      }, 1200);
+      setSuccessMsg('Consulta atualizada com sucesso!');
+      setEditingConsultaId(null);
+      await carregarConsultasPaciente();
+      if (onActionSuccess) onActionSuccess();
+      setTimeout(() => setSuccessMsg(''), 2000);
     } catch (err) {
-      setErrorMsg(err.message || 'Erro ao agendar consulta');
+      setErrorMsg(err.message || 'Erro ao atualizar consulta.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Salvar Nova Medição
-  const handleSalvarMedicao = async (e) => {
+  // Alternar Confirmação (1 clique)
+  const handleToggleConfirmacao = async (consultaId) => {
+    try {
+      await alternarConfirmacaoConsulta(consultaId, nutricionistaId);
+      await carregarConsultasPaciente();
+      if (onActionSuccess) onActionSuccess();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Alternar Status Realizada / Pendente
+  const handleToggleStatus = async (consulta) => {
+    try {
+      const proximoStatus = consulta.status === 'realizada' ? 'confirmada' : 'realizada';
+      await atualizarStatusConsulta(consulta.id, proximoStatus, nutricionistaId);
+      await carregarConsultasPaciente();
+      if (onActionSuccess) onActionSuccess();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Desmarcar / Cancelar Consulta
+  const handleDesmarcar = async (consultaId) => {
+    if (!window.confirm('Deseja realmente desmarcar esta consulta da agenda do paciente?')) return;
+    try {
+      await desmarcarConsulta(consultaId, nutricionistaId);
+      await carregarConsultasPaciente();
+      if (onActionSuccess) onActionSuccess();
+      setSuccessMsg('Consulta desmarcada com sucesso!');
+      setTimeout(() => setSuccessMsg(''), 2000);
+    } catch (err) {
+      setErrorMsg('Erro ao desmarcar consulta.');
+    }
+  };
+
+  // Agendar Novo Retorno
+  const handleAgendarNovoRetorno = async (e) => {
     e.preventDefault();
-    if (!novoPeso) return;
+    if (!novoData || !novoHora) return;
+
+    if (novoConflict) {
+      setErrorMsg(`Horário Ocupado: O paciente "${novoConflict.paciente_nome}" já está agendado neste horário.`);
+      return;
+    }
 
     setSubmitting(true);
     setErrorMsg('');
     try {
-      await adicionarMedicaoEvolucao(paciente.id, {
-        peso: novoPeso,
-        gordura: novaGordura,
-        massaMagra: novaMassaMagra,
-        cintura: novaCintura,
-        adesao: novaAdesao,
-        notas: novasNotas || 'Avaliação antropométrica e bioimpedância'
+      const [h, m] = novoHora.split(':');
+      const d = new Date(novoData);
+      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+
+      await agendarConsulta({
+        pacienteId: paciente.id,
+        pacienteNome: paciente.nome,
+        dataConsulta: d.toISOString(),
+        tipo: novoTipo,
+        modalidade: novoModalidade,
+        linkTeleconsulta: novoLink,
+        confirmacao: novoConfirmacao
       }, nutricionistaId);
 
-      setSuccessMsg('Nova medição de evolução registrada com sucesso!');
-      setTimeout(() => {
-        setSuccessMsg('');
-        setActiveTab('evolucao');
-        if (onActionSuccess) onActionSuccess();
-      }, 1000);
+      setSuccessMsg('Nova consulta agendada com sucesso!');
+      await carregarConsultasPaciente();
+      if (onActionSuccess) onActionSuccess();
+      setTimeout(() => setSuccessMsg(''), 2500);
     } catch (err) {
-      setErrorMsg(err.message || 'Erro ao registrar medição');
+      setErrorMsg(err.message || 'Erro ao agendar consulta.');
     } finally {
       setSubmitting(false);
     }
@@ -291,7 +467,6 @@ export default function PatientProfileModal({
       reader.readAsDataURL(file);
     });
 
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -327,6 +502,102 @@ export default function PatientProfileModal({
     }
     if (mimeType?.includes('zip') || mimeType?.includes('rar')) return <FileArchive size={20} className="icon-purple" />;
     return <File size={20} className="icon-blue" />;
+  };
+
+  // ----------------------------------------------------
+  // CÁLCULOS NUTRICIONAIS & ENERGÉTICOS (TMB / GET / VET / MACROS)
+  // ----------------------------------------------------
+  const idadeCalc = useMemo(() => {
+    if (paciente.dataNascimento) {
+      const birth = new Date(paciente.dataNascimento);
+      const diff = Date.now() - birth.getTime();
+      const ageDate = new Date(diff);
+      return Math.abs(ageDate.getUTCFullYear() - 1970) || paciente.idade || 30;
+    }
+    return paciente.idade || 30;
+  }, [paciente.dataNascimento, paciente.idade]);
+
+  const pesoCalc = Number(paciente.pesoAtual || 70);
+  const alturaCalc = Number(paciente.altura || 170);
+  const sexoCalc = paciente.sexo || 'Feminino';
+
+  // 1. TMB - Mifflin-St Jeor
+  const tmbMifflin = useMemo(() => {
+    if (sexoCalc === 'Masculino') {
+      return Math.round((10 * pesoCalc) + (6.25 * alturaCalc) - (5 * idadeCalc) + 5);
+    }
+    return Math.round((10 * pesoCalc) + (6.25 * alturaCalc) - (5 * idadeCalc) - 161);
+  }, [pesoCalc, alturaCalc, idadeCalc, sexoCalc]);
+
+  // 2. TMB - Harris-Benedict
+  const tmbHarris = useMemo(() => {
+    if (sexoCalc === 'Masculino') {
+      return Math.round(66.5 + (13.75 * pesoCalc) + (5.003 * alturaCalc) - (6.75 * idadeCalc));
+    }
+    return Math.round(655.1 + (9.563 * pesoCalc) + (1.850 * alturaCalc) - (4.676 * idadeCalc));
+  }, [pesoCalc, alturaCalc, idadeCalc, sexoCalc]);
+
+  const tmbEscolhida = calcFormula === 'mifflin' ? tmbMifflin : tmbHarris;
+
+  // 3. GET (Gasto Energético Total)
+  const getCalculado = useMemo(() => {
+    return Math.round(tmbEscolhida * parseFloat(calcFatorAtividade));
+  }, [tmbEscolhida, calcFatorAtividade]);
+
+  // 4. VET (Valor Energético Total / Meta Diária)
+  const vetCalculado = useMemo(() => {
+    switch (calcEstrategia) {
+      case 'deficit_leve': return Math.round(getCalculado - 350);
+      case 'deficit_moderado': return Math.round(getCalculado - 550);
+      case 'deficit_agressivo': return Math.round(getCalculado - 750);
+      case 'superavit_leve': return Math.round(getCalculado + 300);
+      case 'superavit_moderado': return Math.round(getCalculado + 500);
+      case 'manutencao':
+      default: return getCalculado;
+    }
+  }, [getCalculado, calcEstrategia]);
+
+  // 5. Macronutrientes
+  const macrosCalculados = useMemo(() => {
+    const protGramas = Math.round(pesoCalc * calcProteinaGKg);
+    const protKcal = protGramas * 4;
+    const protPerc = Math.round((protKcal / (vetCalculado || 1)) * 100);
+
+    const gordKcal = Math.round(vetCalculado * (calcGorduraPerc / 100));
+    const gordGramas = Math.round(gordKcal / 9);
+    const gordGKg = (gordGramas / (pesoCalc || 1)).toFixed(1);
+
+    const carbKcal = Math.max(0, vetCalculado - protKcal - gordKcal);
+    const carbGramas = Math.round(carbKcal / 4);
+    const carbPerc = Math.round((carbKcal / (vetCalculado || 1)) * 100);
+    const carbGKg = (carbGramas / (pesoCalc || 1)).toFixed(1);
+
+    return {
+      proteina: { g: protGramas, kcal: protKcal, perc: protPerc, gkg: calcProteinaGKg },
+      gordura: { g: gordGramas, kcal: gordKcal, perc: calcGorduraPerc, gkg: gordGKg },
+      carboidrato: { g: carbGramas, kcal: carbKcal, perc: carbPerc, gkg: carbGKg }
+    };
+  }, [pesoCalc, calcProteinaGKg, calcGorduraPerc, vetCalculado]);
+
+  // Copiar Prescrição Nutricional
+  const handleCopiarPrescricao = () => {
+    const texto = `📋 *PRESCRIÇÃO NUTRICIONAL & METAS ENERGÉTICAS*
+👤 *Paciente:* ${paciente.nome}
+⚖️ *Peso Atual:* ${pesoCalc} kg | *Altura:* ${alturaCalc} cm | *Idade:* ${idadeCalc} anos
+
+🔥 *Taxa Metabólica Basal (TMB):* ${tmbEscolhida} kcal/dia
+⚡ *Gasto Energético Total (GET):* ${getCalculado} kcal/dia
+🎯 *Meta Calórica Prescrita (VET):* ${vetCalculado} kcal/dia
+
+🥩 *Proteínas:* ${macrosCalculados.proteina.g}g (${macrosCalculados.proteina.gkg} g/kg) • ${macrosCalculados.proteina.kcal} kcal (${macrosCalculados.proteina.perc}%)
+🥑 *Gorduras:* ${macrosCalculados.gordura.g}g (${macrosCalculados.gordura.gkg} g/kg) • ${macrosCalculados.gordura.kcal} kcal (${macrosCalculados.gordura.perc}%)
+🍚 *Carboidratos:* ${macrosCalculados.carboidrato.g}g (${macrosCalculados.carboidrato.gkg} g/kg) • ${macrosCalculados.carboidrato.kcal} kcal (${macrosCalculados.carboidrato.perc}%)
+
+🥗 *VIVA NUTRI — Nutrição de Alta Precisão*`;
+
+    navigator.clipboard.writeText(texto);
+    setCalcCopied(true);
+    setTimeout(() => setCalcCopied(false), 2500);
   };
 
   // Cálculos de Delta (Evolução)
@@ -377,10 +648,6 @@ export default function PatientProfileModal({
     return i === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`;
   }, '');
 
-  const areaD = svgPoints.length > 0 
-    ? `${pathD} L ${svgPoints[svgPoints.length - 1].x},150 L ${svgPoints[0].x},150 Z` 
-    : '';
-
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card patient-evolution-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -402,9 +669,9 @@ export default function PatientProfileModal({
                   <Paperclip size={12} /> {anexosList.length} arquivo(s)
                 </span>
               )}
-              {paciente.diasSemConsulta >= 30 && (
-                <span className="badge-status-alert">
-                  <AlertTriangle size={12} /> Sem retorno há {paciente.diasSemConsulta}d
+              {consultasPaciente.length > 0 && (
+                <span className="badge-files-pill" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
+                  <CalendarDays size={12} /> {consultasPaciente.length} consulta(s)
                 </span>
               )}
             </div>
@@ -438,7 +705,7 @@ export default function PatientProfileModal({
             <span>Prontuário (CRUD)</span>
           </button>
 
-          {/* NOVA ABA: ANEXOS & EXAMES */}
+          {/* ABA: ANEXOS & EXAMES */}
           <button 
             type="button"
             className={`modal-tab-btn ${activeTab === 'anexos' ? 'modal-tab-active' : ''}`}
@@ -451,6 +718,29 @@ export default function PatientProfileModal({
             )}
           </button>
 
+          {/* NOVA ABA: CONSULTAS & AGENDAMENTO (ALTERAÇÃO E CONFIRMAÇÃO) */}
+          <button 
+            type="button"
+            className={`modal-tab-btn ${activeTab === 'consultas' ? 'modal-tab-active' : ''}`}
+            onClick={() => setActiveTab('consultas')}
+          >
+            <CalendarPlus size={16} />
+            <span>Consultas & Agenda</span>
+            {consultasPaciente.length > 0 && (
+              <span className="tab-counter-badge" style={{ background: 'var(--primary-purple)' }}>{consultasPaciente.length}</span>
+            )}
+          </button>
+
+          {/* NOVA ABA: CALCULADORA & METAS (TMB/GET/MACROS) */}
+          <button 
+            type="button"
+            className={`modal-tab-btn ${activeTab === 'calculadora' ? 'modal-tab-active' : ''}`}
+            onClick={() => setActiveTab('calculadora')}
+          >
+            <Calculator size={16} />
+            <span>Calculadora & Metas</span>
+          </button>
+
           <button 
             type="button"
             className={`modal-tab-btn ${activeTab === 'nova-medicao' ? 'modal-tab-active' : ''}`}
@@ -459,16 +749,8 @@ export default function PatientProfileModal({
             <PlusCircle size={16} />
             <span>Lançar Medição</span>
           </button>
-
-          <button 
-            type="button"
-            className={`modal-tab-btn ${activeTab === 'agendar' ? 'modal-tab-active' : ''}`}
-            onClick={() => setActiveTab('agendar')}
-          >
-            <CalendarPlus size={16} />
-            <span>Agendar Retorno</span>
-          </button>
         </div>
+
 
         <div className="modal-body">
           {successMsg && (
@@ -1210,62 +1492,645 @@ export default function PatientProfileModal({
           )}
 
           {/* =========================================================================
-              ABA 5: AGENDAR RETORNO
+              ABA 5: CONSULTAS & AGENDAMENTO (HISTÓRICO, REAGENDAMENTO, MODALIDADE, CONFIRMAÇÃO)
               ========================================================================= */}
-          {activeTab === 'agendar' && (
-            <form onSubmit={handleSchedule} className="modal-schedule-tab">
-              <div className="schedule-prompt" style={{ marginBottom: '16px' }}>
-                <div>
-                  <h4>Marcar Próxima Consulta de Retorno</h4>
-                  <p>Garanta o acompanhamento contínuo para evitar que o paciente entre na faixa de risco de evasão.</p>
+          {activeTab === 'consultas' && (
+            <div className="patient-consultas-tab-content animated-fade-in">
+              
+              {/* FORMULÁRIO DE EDIÇÃO / REAGENDAMENTO (INLINE SE ATIVO) */}
+              {editingConsultaId ? (
+                <form onSubmit={handleSalvarEdicaoConsulta} className="edit-consulta-box-card animated-fade-in">
+                  <div className="edit-box-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Edit3 size={18} className="icon-purple" />
+                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Alterar / Reagendar Consulta</h4>
+                    </div>
+                    <button type="button" className="btn-cancel-flat btn-sm" onClick={handleCancelEditConsulta}>
+                      <X size={16} /> Cancelar Edição
+                    </button>
+                  </div>
+
+                  <div className="form-row grid-2" style={{ marginTop: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Data da Consulta *</label>
+                      <input 
+                        type="date"
+                        className={`form-input ${editConflict ? 'input-error-border' : ''}`}
+                        value={editConsultaData}
+                        onChange={(e) => setEditConsultaData(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Horário *</label>
+                      <input 
+                        type="time"
+                        className={`form-input ${editConflict ? 'input-error-border' : ''}`}
+                        value={editConsultaHora}
+                        onChange={(e) => setEditConsultaHora(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Alerta de Conflito de Horário */}
+                  {editConflict && (
+                    <div className="alert-schedule-conflict animated-fade-in" style={{ margin: '8px 0' }}>
+                      <div className="conflict-icon-wrap"><AlertTriangle size={18} /></div>
+                      <div className="conflict-text-wrap">
+                        <h5 className="conflict-heading">⚠️ Horário Ocupado</h5>
+                        <p className="conflict-desc">
+                          O paciente <strong>{editConflict.paciente_nome}</strong> já está agendado para este horário.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">Tipo de Atendimento</label>
+                    <select 
+                      className="form-input"
+                      value={editConsultaTipo}
+                      onChange={(e) => setEditConsultaTipo(e.target.value)}
+                    >
+                      <option value="Consulta de Retorno">Consulta de Retorno</option>
+                      <option value="Bioimpedância e Antropometria">Bioimpedância e Antropometria</option>
+                      <option value="Ajuste de Cardápio / Plano">Ajuste de Cardápio / Plano</option>
+                      <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
+                      <option value="Avaliação de Exames Laboratoriais">Avaliação de Exames Laboratoriais</option>
+                    </select>
+                  </div>
+
+                  {/* Modalidade (Presencial / Online) */}
+                  <div className="form-group">
+                    <label className="form-label">Modalidade da Consulta</label>
+                    <div className="modality-segmented-control">
+                      <button 
+                        type="button"
+                        className={`btn-modality-opt ${editConsultaModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
+                        onClick={() => setEditConsultaModalidade('presencial')}
+                      >
+                        <MapPin size={15} /> Presencial (Consultório)
+                      </button>
+                      <button 
+                        type="button"
+                        className={`btn-modality-opt ${editConsultaModalidade === 'online' ? 'mod-opt-active' : ''}`}
+                        onClick={() => setEditConsultaModalidade('online')}
+                      >
+                        <Video size={15} /> Online (Teleconsulta)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Link se for Online */}
+                  {editConsultaModalidade === 'online' && (
+                    <div className="form-group animated-fade-in">
+                      <label className="form-label">Link da Sala (Google Meet / Zoom / WhatsApp)</label>
+                      <div style={{ position: 'relative' }}>
+                        <input 
+                          type="url"
+                          className="form-input"
+                          style={{ paddingLeft: '34px' }}
+                          placeholder="https://meet.google.com/..."
+                          value={editConsultaLink}
+                          onChange={(e) => setEditConsultaLink(e.target.value)}
+                        />
+                        <LinkIcon size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confirmação de Presença */}
+                  <div className="form-group">
+                    <label className="form-label">Status de Confirmação do Paciente</label>
+                    <div className="confirmation-segmented-control">
+                      <button 
+                        type="button"
+                        className={`btn-conf-opt ${editConsultaConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
+                        onClick={() => setEditConsultaConfirmacao('confirmado')}
+                      >
+                        <UserCheck size={15} /> Confirmado pelo Paciente
+                      </button>
+                      <button 
+                        type="button"
+                        className={`btn-conf-opt ${editConsultaConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
+                        onClick={() => setEditConsultaConfirmacao('pendente')}
+                      >
+                        <HelpCircle size={15} /> Aguardando Confirmação
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                    <button type="button" className="btn-secondary" onClick={handleCancelEditConsulta}>
+                      Cancelar
+                    </button>
+                    <button 
+                      type="submit" 
+                      className={`btn-primary ${editConflict ? 'btn-disabled-conflict' : ''}`}
+                      disabled={submitting || Boolean(editConflict)}
+                    >
+                      <Save size={14} /> Salvar Alterações
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {/* LISTA DE CONSULTAS AGENDADAS & HISTÓRICO */}
+              <div className="patient-appts-list-card">
+                <div className="appts-list-header">
+                  <div>
+                    <h4 className="appts-list-title">
+                      <CalendarDays size={18} className="icon-purple" /> Consultas de {paciente.nome} ({consultasPaciente.length})
+                    </h4>
+                    <p className="appts-list-subtitle">
+                      Visualize, altere horários, edite confirmação e inicie teleconsultas em 1 clique.
+                    </p>
+                  </div>
                 </div>
+
+                {consultasPaciente.length > 0 ? (
+                  <div className="patient-appts-grid">
+                    {consultasPaciente.map((c) => {
+                      const d = new Date(c.data_consulta);
+                      const isRealizada = c.status === 'realizada';
+                      const isConfirmado = c.confirmacao === 'confirmado';
+                      const isOnline = c.modalidade === 'online';
+                      const dataFormatada = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+                      const horaFormatada = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                      return (
+                        <div key={c.id} className={`patient-appt-item ${isRealizada ? 'item-completed' : ''} ${isConfirmado ? 'item-confirmed' : 'item-pending'}`}>
+                          <div className="item-left-info">
+                            <div className="item-datetime-pill">
+                              <Clock size={13} />
+                              <span>{dataFormatada} às {horaFormatada}</span>
+                            </div>
+                            
+                            <h5 className="item-type-title">{c.tipo || 'Consulta de Retorno'}</h5>
+
+                            <div className="item-badges-row">
+                              {/* Modalidade */}
+                              <span className={`badge-modalidade-pill ${isOnline ? 'pill-online' : 'pill-presencial'}`}>
+                                {isOnline ? <><Video size={11} /> Online (Teleconsulta)</> : <><MapPin size={11} /> Presencial</>}
+                              </span>
+
+                              {/* Confirmação (Botão interativo) */}
+                              <button 
+                                type="button" 
+                                className={`btn-toggle-conf ${isConfirmado ? 'conf-ok' : 'conf-pending'}`}
+                                onClick={() => handleToggleConfirmacao(c.id)}
+                                title={isConfirmado ? 'Presença confirmada. Clique para alterar para pendente.' : 'Pendente de confirmação. Clique para confirmar presença.'}
+                              >
+                                {isConfirmado ? <><UserCheck size={12} /> Confirmado</> : <><HelpCircle size={12} /> Aguardando</>}
+                              </button>
+
+                              {/* Status Realizada */}
+                              {isRealizada && (
+                                <span className="badge-conf-pill pill-conf-ok">✓ Realizada</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="item-actions-col">
+                            {/* Se for online e tiver link */}
+                            {isOnline && c.linkTeleconsulta && (
+                              <a 
+                                href={c.linkTeleconsulta}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-item-action btn-item-video"
+                                title="Abrir sala de Teleconsulta"
+                              >
+                                <Video size={14} /> <span>Abrir Sala</span>
+                              </a>
+                            )}
+
+                            {/* WhatsApp de confirmação */}
+                            {paciente.telefone && (
+                              <a 
+                                href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! Tudo bem? Passando para confirmar sua consulta nutricional no dia ${d.toLocaleDateString('pt-BR')} às ${horaFormatada} (${isOnline ? 'Online por Vídeo' : 'Presencial no Consultório'}). Poderia confirmar sua presença respondendo 'CONFIRMO'? 🥗✨`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-item-action btn-item-wa"
+                                title="Pedir confirmação no WhatsApp"
+                              >
+                                <MessageCircle size={14} /> <span>WhatsApp</span>
+                              </a>
+                            )}
+
+                            {/* Botão de Alterar / Reagendar */}
+                            <button 
+                              type="button" 
+                              className="btn-item-action btn-item-edit"
+                              onClick={() => handleStartEditConsulta(c)}
+                              title="Alterar data, horário, modalidade ou confirmação"
+                            >
+                              <Edit3 size={14} /> <span>Alterar</span>
+                            </button>
+
+                            {/* Concluir / Desmarcar */}
+                            <button 
+                              type="button" 
+                              className={`btn-item-action ${isRealizada ? 'btn-item-check-done' : 'btn-item-check'}`}
+                              onClick={() => handleToggleStatus(c)}
+                              title={isRealizada ? 'Marcar como não realizada' : 'Marcar consulta como concluída'}
+                            >
+                              <Check size={14} />
+                            </button>
+
+                            <button 
+                              type="button" 
+                              className="btn-item-action btn-item-del"
+                              onClick={() => handleDesmarcar(c.id)}
+                              title="Desmarcar esta consulta"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="empty-patient-appts">
+                    <Calendar size={32} className="icon-purple" />
+                    <h4>Nenhum agendamento registrado</h4>
+                    <p>Agende uma nova consulta de retorno logo abaixo para garantir a adesão do paciente.</p>
+                  </div>
+                )}
               </div>
 
-              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">Data e Horário do Retorno *</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={dataConsulta} 
-                    onChange={(e) => setDataConsulta(e.target.value)} 
-                    required 
-                    autoFocus
-                  />
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">Tipo da Consulta</label>
-                  <select 
-                    className="form-input" 
-                    value={tipoConsulta}
-                    onChange={(e) => setTipoConsulta(e.target.value)}
-                  >
-                    <option value="Consulta de Retorno">Consulta de Retorno</option>
-                    <option value="Bioimpedância e Medidas">Bioimpedância e Medidas</option>
-                    <option value="Ajuste de Cardápio">Ajuste de Cardápio</option>
-                    <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
-                  </select>
-                </div>
-              </div>
+              {/* SEÇÃO: AGENDAR NOVA CONSULTA / RETORNO */}
+              {!editingConsultaId && (
+                <form onSubmit={handleAgendarNovoRetorno} className="new-appointment-subcard">
+                  <div className="subcard-header">
+                    <CalendarPlus size={18} className="icon-purple" />
+                    <h4>Agendar Nova Consulta para {paciente.nome}</h4>
+                  </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button 
-                  type="button" 
-                  className="btn-secondary"
-                  onClick={() => setActiveTab('evolucao')}
-                >
-                  Voltar
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary"
-                  disabled={submitting || !dataConsulta}
-                >
-                  {submitting ? 'Agendando...' : 'Confirmar Agendamento de Retorno'}
-                </button>
-              </div>
-            </form>
+                  <div className="form-row grid-2">
+                    <div className="form-group">
+                      <label className="form-label">Data *</label>
+                      <input 
+                        type="date"
+                        className={`form-input ${novoConflict ? 'input-error-border' : ''}`}
+                        value={novoData}
+                        onChange={(e) => setNovoData(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Horário *</label>
+                      <input 
+                        type="time"
+                        className={`form-input ${novoConflict ? 'input-error-border' : ''}`}
+                        value={novoHora}
+                        onChange={(e) => setNovoHora(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {novoConflict && (
+                    <div className="alert-schedule-conflict animated-fade-in" style={{ margin: '8px 0' }}>
+                      <div className="conflict-icon-wrap"><AlertTriangle size={18} /></div>
+                      <div className="conflict-text-wrap">
+                        <h5 className="conflict-heading">⚠️ Horário Ocupado</h5>
+                        <p className="conflict-desc">
+                          O paciente <strong>{novoConflict.paciente_nome}</strong> já está agendado neste horário.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">Tipo de Consulta</label>
+                    <select 
+                      className="form-input"
+                      value={novoTipo}
+                      onChange={(e) => setNovoTipo(e.target.value)}
+                    >
+                      <option value="Consulta de Retorno">Consulta de Retorno</option>
+                      <option value="Bioimpedância e Antropometria">Bioimpedância e Antropometria</option>
+                      <option value="Ajuste de Cardápio / Plano">Ajuste de Cardápio / Plano</option>
+                      <option value="Avaliação Nutricional Completa">Avaliação Nutricional Completa</option>
+                      <option value="Avaliação de Exames Laboratoriais">Avaliação de Exames Laboratoriais</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Modalidade de Atendimento</label>
+                    <div className="modality-segmented-control">
+                      <button 
+                        type="button"
+                        className={`btn-modality-opt ${novoModalidade === 'presencial' ? 'mod-opt-active' : ''}`}
+                        onClick={() => setNovoModalidade('presencial')}
+                      >
+                        <MapPin size={15} /> Presencial (Consultório)
+                      </button>
+                      <button 
+                        type="button"
+                        className={`btn-modality-opt ${novoModalidade === 'online' ? 'mod-opt-active' : ''}`}
+                        onClick={() => setNovoModalidade('online')}
+                      >
+                        <Video size={15} /> Online (Teleconsulta)
+                      </button>
+                    </div>
+                  </div>
+
+                  {novoModalidade === 'online' && (
+                    <div className="form-group animated-fade-in">
+                      <label className="form-label">Link da Sala (Google Meet / Zoom / WhatsApp)</label>
+                      <div style={{ position: 'relative' }}>
+                        <input 
+                          type="url"
+                          className="form-input"
+                          style={{ paddingLeft: '34px' }}
+                          placeholder="https://meet.google.com/..."
+                          value={novoLink}
+                          onChange={(e) => setNovoLink(e.target.value)}
+                        />
+                        <LinkIcon size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">Status Inicial de Confirmação</label>
+                    <div className="confirmation-segmented-control">
+                      <button 
+                        type="button"
+                        className={`btn-conf-opt ${novoConfirmacao === 'confirmado' ? 'conf-opt-yes' : ''}`}
+                        onClick={() => setNovoConfirmacao('confirmado')}
+                      >
+                        <UserCheck size={15} /> Já Confirmado pelo Paciente
+                      </button>
+                      <button 
+                        type="button"
+                        className={`btn-conf-opt ${novoConfirmacao === 'pendente' ? 'conf-opt-pending' : ''}`}
+                        onClick={() => setNovoConfirmacao('pendente')}
+                      >
+                        <HelpCircle size={15} /> Aguardando Confirmação
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
+                    <button 
+                      type="submit" 
+                      className={`btn-primary ${novoConflict ? 'btn-disabled-conflict' : ''}`}
+                      disabled={submitting || !novoData || Boolean(novoConflict)}
+                    >
+                      <CalendarPlus size={16} /> Confirmar Novo Agendamento
+                    </button>
+                  </div>
+                </form>
+              )}
+
+            </div>
           )}
+
+          {/* =========================================================================
+              ABA 6: CALCULADORA NUTRICIONAL & METAS ENERGÉTICAS (TMB / GET / VET / MACROS)
+              ========================================================================= */}
+          {activeTab === 'calculadora' && (
+            <div className="patient-calculator-tab-content animated-fade-in">
+              
+              {/* Banner de Dados Biométricos Base */}
+              <div className="calc-summary-ribbon">
+                <div className="calc-bio-item">
+                  <span className="bio-lbl">Paciente:</span>
+                  <strong>{paciente.nome}</strong>
+                </div>
+                <div className="calc-bio-item">
+                  <span className="bio-lbl">Sexo / Idade:</span>
+                  <strong>{sexoCalc} • {idadeCalc} anos</strong>
+                </div>
+                <div className="calc-bio-item">
+                  <span className="bio-lbl">Peso / Altura:</span>
+                  <strong>{pesoCalc} kg • {alturaCalc} cm</strong>
+                </div>
+                <div className="calc-bio-item">
+                  <span className="bio-lbl">IMC:</span>
+                  <span className="highlight-pill">{paciente.imc || (pesoCalc / ((alturaCalc/100)**2)).toFixed(1)}</span>
+                </div>
+              </div>
+
+              {/* Grid 2 Colunas: Configurações & Resultados */}
+              <div className="calc-main-grid">
+                
+                {/* Coluna 1: Parâmetros e Estratégia */}
+                <div className="calc-params-card">
+                  <h4 className="calc-card-title">
+                    <Flame size={18} className="icon-orange" /> 1. Parâmetros Energéticos
+                  </h4>
+
+                  <div className="form-group">
+                    <label className="form-label">Fórmula da Taxa Metabólica Basal (TMB)</label>
+                    <div className="modality-segmented-control">
+                      <button 
+                        type="button" 
+                        className={`btn-modality-opt ${calcFormula === 'mifflin' ? 'mod-opt-active' : ''}`}
+                        onClick={() => setCalcFormula('mifflin')}
+                      >
+                        Mifflin-St Jeor (Padrão)
+                      </button>
+                      <button 
+                        type="button" 
+                        className={`btn-modality-opt ${calcFormula === 'harris' ? 'mod-opt-active' : ''}`}
+                        onClick={() => setCalcFormula('harris')}
+                      >
+                        Harris-Benedict
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Nível de Atividade Física (Fator Atividade - FA)</label>
+                    <select 
+                      className="form-input"
+                      value={calcFatorAtividade}
+                      onChange={(e) => setCalcFatorAtividade(e.target.value)}
+                    >
+                      <option value="1.2">Sedentário (Pouco ou nenhum exercício) • 1.2</option>
+                      <option value="1.375">Levemente Ativo (Exercício 1-3 dias/semana) • 1.375</option>
+                      <option value="1.55">Moderadamente Ativo (Exercício 3-5 dias/semana) • 1.55</option>
+                      <option value="1.725">Muito Ativo (Exercício intenso 6-7 dias/semana) • 1.725</option>
+                      <option value="1.9">Extremamente Ativo (Atleta / Trabalho pesado) • 1.9</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Estratégia Nutricional / Meta Calórica</label>
+                    <select 
+                      className="form-input"
+                      value={calcEstrategia}
+                      onChange={(e) => setCalcEstrategia(e.target.value)}
+                    >
+                      <option value="deficit_moderado">📉 Emagrecimento (Déficit de -550 kcal/dia)</option>
+                      <option value="deficit_leve">📉 Emagrecimento Suave (Déficit de -350 kcal/dia)</option>
+                      <option value="deficit_agressivo">⚡ Emagrecimento Rápido (Déficit de -750 kcal/dia)</option>
+                      <option value="manutencao">⚖️ Manutenção de Peso (0 kcal)</option>
+                      <option value="superavit_leve">📈 Hipertrofia Moderada (+300 kcal/dia)</option>
+                      <option value="superavit_moderado">💪 Hipertrofia Alta (+500 kcal/dia)</option>
+                    </select>
+                  </div>
+
+                  <h4 className="calc-card-title" style={{ marginTop: '16px' }}>
+                    <Utensils size={18} className="icon-green" /> 2. Distribuição de Macronutrientes
+                  </h4>
+
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <label className="form-label" style={{ margin: 0 }}>Proteínas (g por kg de peso corporal)</label>
+                      <strong style={{ color: 'var(--primary-purple-light)' }}>{calcProteinaGKg} g/kg</strong>
+                    </div>
+                    <input 
+                      type="range"
+                      min="1.0"
+                      max="3.0"
+                      step="0.1"
+                      className="calc-range-slider"
+                      value={calcProteinaGKg}
+                      onChange={(e) => setCalcProteinaGKg(parseFloat(e.target.value))}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span>1.0 g/kg (Básico)</span>
+                      <span>2.0 g/kg (Atleta)</span>
+                      <span>3.0 g/kg (Cutting)</span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <label className="form-label" style={{ margin: 0 }}>Lipídios / Gorduras (% do VET)</label>
+                      <strong style={{ color: '#F59E0B' }}>{calcGorduraPerc}%</strong>
+                    </div>
+                    <input 
+                      type="range"
+                      min="15"
+                      max="40"
+                      step="1"
+                      className="calc-range-slider slider-orange"
+                      value={calcGorduraPerc}
+                      onChange={(e) => setCalcGorduraPerc(parseInt(e.target.value, 10))}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span>15% (Low Fat)</span>
+                      <span>25% (Equilibrado)</span>
+                      <span>40% (Keto/Low Carb)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coluna 2: Resultados e Resumo de Prescrição */}
+                <div className="calc-results-card">
+                  <h4 className="calc-card-title">
+                    <Activity size={18} className="icon-purple" /> Prescrição Energética Calculada
+                  </h4>
+
+                  <div className="calc-result-bubbles">
+                    <div className="calc-bubble">
+                      <span className="bubble-lbl">TMB Basal</span>
+                      <strong className="bubble-val">{tmbEscolhida}</strong>
+                      <span className="bubble-unit">kcal/dia</span>
+                    </div>
+
+                    <div className="calc-bubble">
+                      <span className="bubble-lbl">GET Total</span>
+                      <strong className="bubble-val">{getCalculado}</strong>
+                      <span className="bubble-unit">kcal/dia</span>
+                    </div>
+
+                    <div className="calc-bubble bubble-highlight">
+                      <span className="bubble-lbl">VET Prescrito</span>
+                      <strong className="bubble-val" style={{ color: '#10B981' }}>{vetCalculado}</strong>
+                      <span className="bubble-unit">kcal/dia</span>
+                    </div>
+                  </div>
+
+                  {/* Tabela de Macronutrientes */}
+                  <div className="calc-macros-table">
+                    <div className="macro-row macro-prot">
+                      <div className="macro-info">
+                        <span className="macro-dot dot-prot" />
+                        <div>
+                          <strong>Proteínas ({macrosCalculados.proteina.gkg} g/kg)</strong>
+                          <span className="macro-sub">{macrosCalculados.proteina.perc}% do valor diário</span>
+                        </div>
+                      </div>
+                      <div className="macro-val-group">
+                        <span className="macro-g">{macrosCalculados.proteina.g}g</span>
+                        <span className="macro-kcal">{macrosCalculados.proteina.kcal} kcal</span>
+                      </div>
+                    </div>
+
+                    <div className="macro-row macro-fat">
+                      <div className="macro-info">
+                        <span className="macro-dot dot-fat" />
+                        <div>
+                          <strong>Gorduras ({macrosCalculados.gordura.gkg} g/kg)</strong>
+                          <span className="macro-sub">{macrosCalculados.gordura.perc}% do valor diário</span>
+                        </div>
+                      </div>
+                      <div className="macro-val-group">
+                        <span className="macro-g">{macrosCalculados.gordura.g}g</span>
+                        <span className="macro-kcal">{macrosCalculados.gordura.kcal} kcal</span>
+                      </div>
+                    </div>
+
+                    <div className="macro-row macro-carb">
+                      <div className="macro-info">
+                        <span className="macro-dot dot-carb" />
+                        <div>
+                          <strong>Carboidratos ({macrosCalculados.carboidrato.gkg} g/kg)</strong>
+                          <span className="macro-sub">{macrosCalculados.carboidrato.perc}% do valor diário</span>
+                        </div>
+                      </div>
+                      <div className="macro-val-group">
+                        <span className="macro-g">{macrosCalculados.carboidrato.g}g</span>
+                        <span className="macro-kcal">{macrosCalculados.carboidrato.kcal} kcal</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Barra Visual de Distribuição de Macros */}
+                  <div className="macro-bar-container">
+                    <div className="macro-bar-segment seg-prot" style={{ width: `${macrosCalculados.proteina.perc}%` }} title={`Proteínas ${macrosCalculados.proteina.perc}%`} />
+                    <div className="macro-bar-segment seg-fat" style={{ width: `${macrosCalculados.gordura.perc}%` }} title={`Gorduras ${macrosCalculados.gordura.perc}%`} />
+                    <div className="macro-bar-segment seg-carb" style={{ width: `${macrosCalculados.carboidrato.perc}%` }} title={`Carboidratos ${macrosCalculados.carboidrato.perc}%`} />
+                  </div>
+
+                  {/* Ações de Compartilhamento / Cópia */}
+                  <div className="calc-actions-row">
+                    <button 
+                      type="button" 
+                      className={`btn-calc-action ${calcCopied ? 'btn-copied' : ''}`}
+                      onClick={handleCopiarPrescricao}
+                    >
+                      {calcCopied ? <><Check size={16} /> Copiado!</> : <><Copy size={16} /> Copiar Prescrição</>}
+                    </button>
+
+                    {paciente.telefone && (
+                      <a 
+                        href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Segue sua nova meta calórica e distribuição de macronutrientes calculada:\n\n🎯 *Meta Diária (VET):* ${vetCalculado} kcal\n🥩 *Proteínas:* ${macrosCalculados.proteina.g}g (${macrosCalculados.proteina.gkg}g/kg)\n🥑 *Gorduras:* ${macrosCalculados.gordura.g}g\n🍚 *Carboidratos:* ${macrosCalculados.carboidrato.g}g\n\nFoco no seu objetivo! 💪✨`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-calc-action btn-calc-wa"
+                      >
+                        <MessageCircle size={16} /> Enviar no WhatsApp
+                      </a>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
 
         </div>
 
