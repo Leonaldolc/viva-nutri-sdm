@@ -604,6 +604,10 @@ export default function PatientProfileModal({
     }
   };
 
+  // Helpers de proteção
+  const cleanPhone = (tel) => String(tel || '').replace(/\D/g, '');
+  const firstName = (name) => String(name || 'Paciente').trim().split(' ')[0] || 'Paciente';
+
   const formatFileSize = (bytes) => {
     if (!bytes) return '0 KB';
     const k = 1024;
@@ -626,18 +630,18 @@ export default function PatientProfileModal({
   // CÁLCULOS NUTRICIONAIS & ENERGÉTICOS (TMB / GET / VET / MACROS)
   // ----------------------------------------------------
   const idadeCalc = useMemo(() => {
-    if (paciente.dataNascimento) {
+    if (paciente?.dataNascimento) {
       const birth = new Date(paciente.dataNascimento);
       const diff = Date.now() - birth.getTime();
       const ageDate = new Date(diff);
-      return Math.abs(ageDate.getUTCFullYear() - 1970) || paciente.idade || 30;
+      return Math.abs(ageDate.getUTCFullYear() - 1970) || paciente?.idade || 30;
     }
-    return paciente.idade || 30;
-  }, [paciente.dataNascimento, paciente.idade]);
+    return paciente?.idade || 30;
+  }, [paciente?.dataNascimento, paciente?.idade]);
 
-  const pesoCalc = Number(paciente.pesoAtual || 70);
-  const alturaCalc = Number(paciente.altura || 170);
-  const sexoCalc = paciente.sexo || 'Feminino';
+  const pesoCalc = Number(paciente?.pesoAtual) || 70;
+  const alturaCalc = Number(paciente?.altura) || 170;
+  const sexoCalc = paciente?.sexo || 'Feminino';
 
   // 1. TMB - Mifflin-St Jeor
   const tmbMifflin = useMemo(() => {
@@ -659,7 +663,7 @@ export default function PatientProfileModal({
 
   // 3. GET (Gasto Energético Total)
   const getCalculado = useMemo(() => {
-    return Math.round(tmbEscolhida * parseFloat(calcFatorAtividade));
+    return Math.round(tmbEscolhida * parseFloat(calcFatorAtividade || '1.375'));
   }, [tmbEscolhida, calcFatorAtividade]);
 
   // 4. VET (Valor Energético Total / Meta Diária)
@@ -677,22 +681,22 @@ export default function PatientProfileModal({
 
   // 5. Macronutrientes
   const macrosCalculados = useMemo(() => {
-    const protGramas = Math.round(pesoCalc * calcProteinaGKg);
+    const protGramas = Math.round(pesoCalc * (calcProteinaGKg || 1.8));
     const protKcal = protGramas * 4;
     const protPerc = Math.round((protKcal / (vetCalculado || 1)) * 100);
 
-    const gordKcal = Math.round(vetCalculado * (calcGorduraPerc / 100));
+    const gordKcal = Math.round((vetCalculado || 2000) * ((calcGorduraPerc || 25) / 100));
     const gordGramas = Math.round(gordKcal / 9);
     const gordGKg = (gordGramas / (pesoCalc || 1)).toFixed(1);
 
-    const carbKcal = Math.max(0, vetCalculado - protKcal - gordKcal);
+    const carbKcal = Math.max(0, (vetCalculado || 2000) - protKcal - gordKcal);
     const carbGramas = Math.round(carbKcal / 4);
     const carbPerc = Math.round((carbKcal / (vetCalculado || 1)) * 100);
     const carbGKg = (carbGramas / (pesoCalc || 1)).toFixed(1);
 
     return {
-      proteina: { g: protGramas, kcal: protKcal, perc: protPerc, gkg: calcProteinaGKg },
-      gordura: { g: gordGramas, kcal: gordKcal, perc: calcGorduraPerc, gkg: gordGKg },
+      proteina: { g: protGramas, kcal: protKcal, perc: protPerc, gkg: calcProteinaGKg || 1.8 },
+      gordura: { g: gordGramas, kcal: gordKcal, perc: calcGorduraPerc || 25, gkg: gordGKg },
       carboidrato: { g: carbGramas, kcal: carbKcal, perc: carbPerc, gkg: carbGKg }
     };
   }, [pesoCalc, calcProteinaGKg, calcGorduraPerc, vetCalculado]);
@@ -700,7 +704,7 @@ export default function PatientProfileModal({
   // Copiar Prescrição Nutricional
   const handleCopiarPrescricao = () => {
     const texto = `📋 *PRESCRIÇÃO NUTRICIONAL & METAS ENERGÉTICAS*
-👤 *Paciente:* ${paciente.nome}
+👤 *Paciente:* ${paciente?.nome || 'Paciente'}
 ⚖️ *Peso Atual:* ${pesoCalc} kg | *Altura:* ${alturaCalc} cm | *Idade:* ${idadeCalc} anos
 
 🔥 *Taxa Metabólica Basal (TMB):* ${tmbEscolhida} kcal/dia
@@ -719,25 +723,25 @@ export default function PatientProfileModal({
   };
 
   // Cálculos de Delta (Evolução)
-  const pesoInicial = paciente.pesoInicial || historico[0]?.peso || 75;
-  const pesoAtual = paciente.pesoAtual || historico[historico.length - 1]?.peso || 72;
+  const pesoInicial = Number(paciente?.pesoInicial) || Number(historico[0]?.peso) || 75;
+  const pesoAtual = Number(paciente?.pesoAtual) || Number(historico[historico.length - 1]?.peso) || 72;
   const deltaPeso = Math.round((pesoAtual - pesoInicial) * 10) / 10;
 
-  const gorduraInicial = paciente.gorduraInicial || historico[0]?.gordura || 28;
-  const gorduraAtual = paciente.gorduraAtual || historico[historico.length - 1]?.gordura || 24;
+  const gorduraInicial = Number(paciente?.gorduraInicial) || Number(historico[0]?.gordura) || 28;
+  const gorduraAtual = Number(paciente?.gorduraAtual) || Number(historico[historico.length - 1]?.gordura) || 24;
   const deltaGordura = Math.round((gorduraAtual - gorduraInicial) * 10) / 10;
 
-  const massaInicial = paciente.massaMagraInicial || historico[0]?.massaMagra || 28;
-  const massaAtual = paciente.massaMagraAtual || historico[historico.length - 1]?.massaMagra || 30;
+  const massaInicial = Number(paciente?.massaMagraInicial) || Number(historico[0]?.massaMagra) || 28;
+  const massaAtual = Number(paciente?.massaMagraAtual) || Number(historico[historico.length - 1]?.massaMagra) || 30;
   const deltaMassa = Math.round((massaAtual - massaInicial) * 10) / 10;
 
-  const cinturaInicial = paciente.cinturaInicial || historico[0]?.cintura || 90;
-  const cinturaAtual = paciente.cinturaAtual || historico[historico.length - 1]?.cintura || 84;
+  const cinturaInicial = Number(paciente?.cinturaInicial) || Number(historico[0]?.cintura) || 90;
+  const cinturaAtual = Number(paciente?.cinturaAtual) || Number(historico[historico.length - 1]?.cintura) || 84;
   const deltaCintura = Math.round((cinturaAtual - cinturaInicial) * 10) / 10;
 
   // Config de Gráfico
   const metricConfig = {
-    peso: { label: 'Peso Corporal', unit: 'kg', color: '#7C3AED', meta: paciente.pesoMeta || 70 },
+    peso: { label: 'Peso Corporal', unit: 'kg', color: '#7C3AED', meta: Number(paciente?.pesoMeta) || 70 },
     gordura: { label: 'Gordura Corporal', unit: '%', color: '#EF4444', meta: 20 },
     massaMagra: { label: 'Massa Magra', unit: 'kg', color: '#10B981', meta: 35 },
     cintura: { label: 'Circunferência Abdominal', unit: 'cm', color: '#F97316', meta: 80 },
@@ -745,30 +749,39 @@ export default function PatientProfileModal({
   };
 
   const currentCfg = metricConfig[selectedMetric] || metricConfig.peso;
-  const chartValues = historico.map(h => Number(h[selectedMetric] || 0));
-  const minVal = Math.min(...chartValues, currentCfg.meta) * 0.92;
-  const maxVal = Math.max(...chartValues, currentCfg.meta) * 1.08;
+  const chartValues = (historico || []).map(h => Number(h[selectedMetric]) || 0);
+  const minVal = chartValues.length > 0 ? (Math.min(...chartValues, currentCfg.meta) * 0.92) : 0;
+  const maxVal = chartValues.length > 0 ? (Math.max(...chartValues, currentCfg.meta) * 1.08) : 100;
   const range = (maxVal - minVal) || 1;
 
-  const svgPoints = historico.map((h, i) => {
-    const x = historico.length > 1 ? 40 + (i / (historico.length - 1)) * 420 : 250;
-    const val = Number(h[selectedMetric] || 0);
-    const y = 140 - ((val - minVal) / range) * 110;
-    return {
-      x,
-      y,
-      val,
-      data: new Date(h.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-    };
-  });
+  const svgPoints = useMemo(() => {
+    if (!historico || historico.length === 0) return [];
+    return historico.map((h, i) => {
+      const x = historico.length > 1 ? 40 + (i / (historico.length - 1)) * 420 : 250;
+      const val = Number(h[selectedMetric]) || 0;
+      const y = range > 0 ? (140 - ((val - minVal) / range) * 110) : 85;
+      const d = h.data ? new Date(h.data) : new Date();
+      const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Consulta';
+      return {
+        x: isNaN(x) ? 250 : x,
+        y: isNaN(y) ? 85 : y,
+        val,
+        data: dateStr
+      };
+    });
+  }, [historico, selectedMetric, range, minVal]);
 
-  const pathD = svgPoints.reduce((acc, pt, i) => {
-    return i === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`;
-  }, '');
+  const pathD = useMemo(() => {
+    if (!svgPoints || svgPoints.length === 0) return '';
+    return svgPoints.reduce((acc, pt, i) => {
+      return i === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`;
+    }, '');
+  }, [svgPoints]);
 
-  const areaD = svgPoints.length > 0
-    ? `${pathD} L ${svgPoints[svgPoints.length - 1].x},150 L ${svgPoints[0].x},150 Z`
-    : '';
+  const areaD = useMemo(() => {
+    if (!svgPoints || svgPoints.length === 0 || !pathD) return '';
+    return `${pathD} L ${svgPoints[svgPoints.length - 1].x},150 L ${svgPoints[0].x},150 Z`;
+  }, [svgPoints, pathD]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -1470,9 +1483,9 @@ export default function PatientProfileModal({
                           </span>
 
                           <div className="plano-actions-mini" onClick={(e) => e.stopPropagation()}>
-                            {paciente.telefone && (
+                            {paciente?.telefone && (
                               <a
-                                href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Seu plano alimentar '${plano.titulo}' (${plano.caloriasTotais} kcal/dia) foi atualizado no sistema VIVA NUTRI. Confira seu cardápio completo! ✨`)}`}
+                                href={`https://wa.me/55${cleanPhone(paciente.telefone)}?text=${encodeURIComponent(`Olá, ${firstName(paciente.nome)}! 🥗 Seu plano alimentar '${plano.titulo}' (${plano.caloriasTotais} kcal/dia) foi atualizado no sistema VIVA NUTRI. Confira seu cardápio completo! ✨`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn-mini-wa"
@@ -2410,9 +2423,9 @@ export default function PatientProfileModal({
                   {calcCopied ? <><Check size={16} /> Copiado!</> : <><Copy size={16} /> Copiar Prescrição</>}
                 </button>
 
-                {paciente.telefone && (
+                {paciente?.telefone && (
                   <a
-                    href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Segue sua nova meta calórica e distribuição de macronutrientes calculada:\n\n🎯 *Meta Diária (VET):* ${vetCalculado} kcal\n🥩 *Proteínas:* ${macrosCalculados.proteina.g}g (${macrosCalculados.proteina.gkg}g/kg)\n🥑 *Gorduras:* ${macrosCalculados.gordura.g}g\n🍚 *Carboidratos:* ${macrosCalculados.carboidrato.g}g\n\nFoco no seu objetivo! 💪✨`)}`}
+                    href={`https://wa.me/55${cleanPhone(paciente.telefone)}?text=${encodeURIComponent(`Olá, ${firstName(paciente.nome)}! 🥗 Segue sua nova meta calórica e distribuição de macronutrientes calculada:\n\n🎯 *Meta Diária (VET):* ${vetCalculado} kcal\n🥩 *Proteínas:* ${macrosCalculados.proteina.g}g (${macrosCalculados.proteina.gkg}g/kg)\n🥑 *Gorduras:* ${macrosCalculados.gordura.g}g\n🍚 *Carboidratos:* ${macrosCalculados.carboidrato.g}g\n\nFoco no seu objetivo! 💪✨`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-calc-action btn-calc-wa"
@@ -2624,9 +2637,9 @@ export default function PatientProfileModal({
             <button type="button" className="btn-secondary" onClick={() => setSelectedPlano(null)}>
               Fechar
             </button>
-            {paciente.telefone && (
+            {paciente?.telefone && (
               <a
-                href={`https://wa.me/55${paciente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${paciente.nome.split(' ')[0]}! 🥗 Segue o seu plano alimentar prescrito:\n\n📋 *${selectedPlano.titulo}*\n⚡ *Meta:* ${selectedPlano.caloriasTotais} kcal/dia\n\n${(selectedPlano.refeicoes || []).map(r => `🍽️ *${r.nome}* (${r.horario}):\n${r.alimentos}`).join('\n\n')}\n\n💡 *Orientações:* ${selectedPlano.orientacoesGerais || 'Hidratação constante!'}`)}`}
+                href={`https://wa.me/55${cleanPhone(paciente.telefone)}?text=${encodeURIComponent(`Olá, ${firstName(paciente.nome)}! 🥗 Segue o seu plano alimentar prescrito:\n\n📋 *${selectedPlano.titulo}*\n⚡ *Meta:* ${selectedPlano.caloriasTotais} kcal/dia\n\n${(selectedPlano.refeicoes || []).map(r => `🍽️ *${r.nome}* (${r.horario}):\n${r.alimentos}`).join('\n\n')}\n\n💡 *Orientações:* ${selectedPlano.orientacoesGerais || 'Hidratação constante!'}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-primary"

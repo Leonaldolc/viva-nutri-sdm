@@ -706,8 +706,19 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
       {selectedPatient && (
         <PatientProfileModal
           paciente={(() => {
-            const full = metrics.pacientesAnaliticos?.find(p => p.id === selectedPatient.id);
-            return full ? { ...full, ...selectedPatient } : selectedPatient;
+            const full = (metrics.pacientesAnaliticos || []).find(p => p.id === selectedPatient.id);
+            const base = full ? { ...full, ...selectedPatient } : selectedPatient;
+            return {
+              ...base,
+              nome: base.nome || 'Paciente',
+              pesoAtual: Number(base.pesoAtual) || 70,
+              pesoInicial: Number(base.pesoInicial) || Number(base.pesoAtual) || 70,
+              altura: Number(base.altura) || 170,
+              objetivo: base.objetivo || 'Saúde Geral',
+              historicoEvolucao: Array.isArray(base.historicoEvolucao) ? base.historicoEvolucao : [],
+              planosAlimentares: Array.isArray(base.planosAlimentares) ? base.planosAlimentares : [],
+              anexos: Array.isArray(base.anexos) ? base.anexos : []
+            };
           })()}
           onClose={() => setSelectedPatient(null)}
           onActionSuccess={() => loadData()}
