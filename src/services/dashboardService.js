@@ -265,6 +265,12 @@ function getInitialPatients(nutricionistaId) {
 function getInitialAppointments(nutricionistaId) {
   const now = new Date();
   
+  const getTodayAtHour = (hour, minute = 0) => {
+    const d = new Date();
+    d.setHours(hour, minute, 0, 0);
+    return d.toISOString();
+  };
+
   const dayOfWeek = now.getDay();
   const distanceToMonday = (dayOfWeek + 6) % 7;
   const monday = new Date(now);
@@ -279,38 +285,54 @@ function getInitialAppointments(nutricionistaId) {
   };
 
   return [
+    // Consultas de HOJE (para organização imediata da nutricionista)
     {
-      id: 'cons_1',
+      id: 'cons_today_1',
       nutricionista_id: nutricionistaId,
       paciente_id: 'pac_4',
       paciente_nome: 'Lucas Fontes',
-      data_consulta: getDayInCurrentWeek(0, 10), // Segunda
-      diaSemana: 'Seg',
+      paciente_telefone: '(19) 98112-3344',
+      paciente_email: 'lucas.fontes@email.com',
+      data_consulta: getTodayAtHour(9, 0),
       status: 'confirmada',
-      tipo: 'Bioimpedância & Ajuste'
+      tipo: 'Bioimpedância & Ajuste de Carga'
     },
     {
-      id: 'cons_2',
+      id: 'cons_today_2',
+      nutricionista_id: nutricionistaId,
+      paciente_id: 'pac_1',
+      paciente_nome: 'Mariana Silveira',
+      paciente_telefone: '(11) 98765-4321',
+      paciente_email: 'mariana.silveira@email.com',
+      data_consulta: getTodayAtHour(11, 0),
+      status: 'confirmada',
+      tipo: 'Consulta de Retorno & Cardápio'
+    },
+    {
+      id: 'cons_today_3',
       nutricionista_id: nutricionistaId,
       paciente_id: 'pac_5',
       paciente_nome: 'Fernanda Rocha',
-      data_consulta: getDayInCurrentWeek(1, 14), // Terça
-      diaSemana: 'Ter',
-      status: 'confirmada',
-      tipo: 'Acompanhamento FODMAP'
+      paciente_telefone: '(31) 98877-6655',
+      paciente_email: 'fernanda.rocha@email.com',
+      data_consulta: getTodayAtHour(14, 30),
+      status: 'agendada',
+      tipo: 'Acompanhamento Saúde Intestinal'
     },
     {
-      id: 'cons_3',
+      id: 'cons_today_4',
       nutricionista_id: nutricionistaId,
       paciente_id: 'pac_6',
       paciente_nome: 'Rodrigo Guimarães',
-      data_consulta: getDayInCurrentWeek(2, 16), // Quarta
-      diaSemana: 'Qua',
-      status: 'confirmada',
-      tipo: 'Revisão Calórica'
+      paciente_telefone: '(41) 99234-5566',
+      paciente_email: 'rodrigo.g@email.com',
+      data_consulta: getTodayAtHour(16, 30),
+      status: 'agendada',
+      tipo: 'Revisão Calórica & Treino'
     },
+    // Consultas da Semana
     {
-      id: 'cons_4',
+      id: 'cons_1',
       nutricionista_id: nutricionistaId,
       paciente_id: 'pac_8',
       paciente_nome: 'Juliana Paes Costa',
@@ -320,17 +342,18 @@ function getInitialAppointments(nutricionistaId) {
       tipo: 'Avaliação Exames'
     },
     {
-      id: 'cons_5',
+      id: 'cons_2',
       nutricionista_id: nutricionistaId,
-      paciente_id: 'pac_4',
-      paciente_nome: 'Lucas Fontes',
+      paciente_id: 'pac_3',
+      paciente_nome: 'Beatriz Almeida',
       data_consulta: getDayInCurrentWeek(4, 15), // Sexta
       diaSemana: 'Sex',
       status: 'agendada',
-      tipo: 'Planejamento de Carga'
+      tipo: 'Reeducação Alimentar'
     }
   ];
 }
+
 
 function loadDatabase(nutricionistaId) {
   try {
@@ -498,6 +521,19 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
 
   const consultasSemana = consultasSemanaLista.length;
 
+  // 2.1 Consultas de HOJE (Para planejamento do dia)
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  const consultasHojeLista = consultas.filter(c => {
+    const dataC = new Date(c.data_consulta);
+    return dataC >= startOfToday && dataC <= endOfToday && c.status !== 'cancelada';
+  }).sort((a, b) => new Date(a.data_consulta) - new Date(b.data_consulta));
+
+  const consultasHojeCount = consultasHojeLista.length;
+  const proximaConsultaHoje = consultasHojeLista.find(c => new Date(c.data_consulta) >= now && c.status !== 'realizada') || consultasHojeLista[0] || null;
+
+
   // 3. Matriz de Risco e Pacientes Sem Retorno
   const futureAppointments = consultas.filter(c => {
     const dataC = new Date(c.data_consulta);
@@ -603,6 +639,9 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
     totalPacientes,
     consultasSemana,
     consultasSemanaLista,
+    consultasHojeLista,
+    consultasHojeCount,
+    proximaConsultaHoje,
     pacientesSemRetorno,
     totalSemRetorno,
     criticosCount,
@@ -619,6 +658,23 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
     timestamp: new Date().toISOString()
   };
 }
+
+/**
+ * Atualiza o status de uma consulta (ex: 'confirmada', 'realizada', 'em_atendimento', 'cancelada')
+ */
+export async function atualizarStatusConsulta(consultaId, novoStatus, nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+  const updated = consultas.map(c => {
+    if (c.id === consultaId) {
+      return { ...c, status: novoStatus };
+    }
+    return c;
+  });
+  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return updated.find(c => c.id === consultaId);
+}
+
 
 export async function getPacientes(nutricionistaId) {
   const { pacientes } = loadDatabase(nutricionistaId);

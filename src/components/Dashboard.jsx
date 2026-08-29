@@ -39,12 +39,14 @@ import PatientsList from './PatientsList';
 import PatientRegisterPage from './PatientRegisterPage';
 import BirthdayModal from './BirthdayModal';
 import BirthdayAlertsCard from './BirthdayAlertsCard';
+import TodayAppointmentsWidget from './TodayAppointmentsWidget';
 import { 
   getDashboardMetrics, 
   subscribeDashboardUpdates, 
   agendarRetornoRapido,
   getAniversariantesInfo
 } from '../services/dashboardService';
+
 
 export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
   const [activeNav, setActiveNav] = useState('dashboard'); // 'dashboard' | 'pacientes' | 'novo-paciente' | 'agenda'
@@ -200,7 +202,13 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
           >
             <Calendar size={20} className="nav-icon" />
             <span className="nav-label">Agenda Clínica</span>
-            <span className="nav-counter-badge nav-counter-orange">{metrics.consultasSemana}</span>
+            {metrics.consultasHojeCount > 0 ? (
+              <span className="nav-counter-badge nav-badge-today" title={`${metrics.consultasHojeCount} hoje`}>
+                {metrics.consultasHojeCount} Hoje
+              </span>
+            ) : (
+              <span className="nav-counter-badge">{metrics.consultasSemana}</span>
+            )}
             {activeNav === 'agenda' && <span className="nav-active-pill" />}
           </button>
         </nav>
@@ -266,15 +274,42 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
                   <Calendar size={16} />
                   <span>{metrics.consultasSemana} Consultas Agendadas nesta Semana</span>
                 </div>
-                <h1 className="view-title">Agenda Clínica & Retornos</h1>
-                <p className="view-subtitle">Controle de consultas agendadas, retornos periódicos e horários clínicos.</p>
+                <h1 className="view-title">Agenda Clínica & Atendimentos</h1>
+                <p className="view-subtitle">Organize suas consultas de hoje, retornos periódicos e horários clínicos.</p>
               </div>
+            </div>
+
+            {/* Painel de Consultas de Hoje */}
+            <div style={{ marginBottom: '24px' }}>
+              <TodayAppointmentsWidget 
+                consultasHoje={metrics.consultasHojeLista || []}
+                onSelectPatient={(p) => {
+                  const fullP = metrics.pacientesAnaliticos.find(item => item.id === p.id) || p;
+                  setSelectedPatient(fullP);
+                }}
+                onStatusUpdated={() => loadData()}
+                nutricionistaId={nutricionistaId}
+              />
+            </div>
+
+            <div className="agenda-section-title-wrap">
+              <h3 className="agenda-sub-heading">📅 Demais Consultas da Semana</h3>
+              <p className="agenda-sub-desc">Atendimentos confirmados e programados para os próximos dias.</p>
             </div>
 
             <div className="agenda-cards-grid">
               {metrics.consultasSemanaLista && metrics.consultasSemanaLista.length > 0 ? (
                 metrics.consultasSemanaLista.map(c => (
-                  <div key={c.id} className="agenda-item-card">
+                  <div 
+                    key={c.id} 
+                    className="agenda-item-card"
+                    onClick={() => {
+                      const fullP = metrics.pacientesAnaliticos.find(item => item.id === c.paciente_id) || { id: c.paciente_id, nome: c.paciente_nome };
+                      setSelectedPatient(fullP);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
                     <div className="agenda-item-date">
                       <Calendar size={16} className="agenda-icon" />
                       <span>{new Date(c.data_consulta).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
@@ -421,6 +456,19 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
               </div>
             </section>
 
+            {/* PAINEL DE CONSULTAS DE HOJE NO DASHBOARD */}
+            <section style={{ marginBottom: '24px' }}>
+              <TodayAppointmentsWidget 
+                consultasHoje={metrics.consultasHojeLista || []}
+                onSelectPatient={(p) => {
+                  const fullP = metrics.pacientesAnaliticos.find(item => item.id === p.id) || p;
+                  setSelectedPatient(fullP);
+                }}
+                onStatusUpdated={() => loadData()}
+                nutricionistaId={nutricionistaId}
+              />
+            </section>
+
             {/* WIDGET DE ANIVERSARIANTES NO DASHBOARD */}
             {aniversariantesData.totalAniversariantes > 0 && (
               <section style={{ marginBottom: '24px' }}>
@@ -430,6 +478,7 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
                 />
               </section>
             )}
+
 
             {/* GRID DE KPIS PRINCIPAIS */}
             <section className="kpi-grid">

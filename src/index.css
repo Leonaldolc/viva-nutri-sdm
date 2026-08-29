@@ -5494,5 +5494,489 @@ body {
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
 }
 
+/* =========================================================================
+   ESTILOS DO WIDGET DE CONSULTAS DE HOJE (AGENDA DO DIA)
+   ========================================================================= */
+
+.nav-badge-today {
+  background: linear-gradient(135deg, var(--primary-orange), #EA580C) !important;
+  color: white !important;
+  font-weight: 800 !important;
+  animation: pulse 2.5s infinite;
+}
+
+.today-agenda-card-container {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  backdrop-filter: blur(14px);
+}
+
+[data-theme="dark"] .today-agenda-card-container {
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.today-agenda-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+[data-theme="dark"] .today-agenda-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.today-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.today-badge-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="dark"] .today-badge-icon {
+  background: rgba(124, 58, 237, 0.25);
+}
+
+.today-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.today-widget-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .today-widget-title {
+  color: #FFFFFF;
+}
+
+.today-date-tag {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--primary-purple-light);
+  text-transform: capitalize;
+}
+
+.today-widget-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+[data-theme="dark"] .today-widget-subtitle {
+  color: #94A3B8;
+}
+
+.today-progress-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+}
+
+.progress-number {
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: #10B981;
+}
+
+.progress-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #10B981;
+}
+
+/* Banner de Próxima Consulta */
+.next-appointment-banner {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(249, 115, 22, 0.12) 100%);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.next-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.next-time-box {
+  background: var(--primary-purple);
+  color: white;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.next-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.next-label-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--primary-orange);
+  letter-spacing: 0.05em;
+}
+
+[data-theme="dark"] .next-label-tag {
+  color: #FB923C;
+}
+
+.next-patient-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .next-patient-name {
+  color: #FFFFFF;
+}
+
+.next-type-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .next-type-text {
+  color: #94A3B8;
+}
+
+.next-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-today-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: #10B981;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: transform var(--transition-fast);
+}
+
+.btn-today-wa:hover {
+  transform: translateY(-1px);
+}
+
+.btn-today-chart {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-purple);
+  color: white;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  transition: transform var(--transition-fast);
+}
+
+.btn-today-chart:hover {
+  transform: translateY(-1px);
+}
+
+/* Timeline do Dia */
+.today-timeline-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.today-slot-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+  background: var(--input-bg);
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+  gap: 12px;
+}
+
+[data-theme="dark"] .today-slot-item {
+  background: rgba(10, 15, 29, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.today-slot-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--primary-purple-light);
+}
+
+.slot-completed {
+  opacity: 0.75;
+  background: rgba(16, 185, 129, 0.04) !important;
+}
+
+.slot-time-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 80px;
+}
+
+.slot-time-digit {
+  font-weight: 800;
+  font-size: 0.98rem;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .slot-time-digit {
+  color: #F8FAFC;
+}
+
+.slot-dot-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.slot-dot-status.status-confirmada { background: #10B981; }
+.slot-dot-status.status-agendada { background: #F59E0B; }
+.slot-dot-status.status-realizada { background: #3B82F6; }
+
+.slot-patient-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.slot-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-purple) 0%, var(--primary-orange) 100%);
+  color: white;
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.slot-patient-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.slot-patient-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .slot-patient-title {
+  color: #F8FAFC;
+}
+
+.slot-type-sub {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-consulta-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.status-badge-confirmada {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+}
+
+.status-badge-agendada {
+  background: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+}
+
+.status-badge-realizada {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3B82F6;
+}
+
+.status-badge-em_atendimento {
+  background: rgba(124, 58, 237, 0.15);
+  color: var(--primary-purple-light);
+}
+
+.slot-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-slot-icon-action {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.btn-slot-wa:hover {
+  background: #10B981;
+  color: white;
+  border-color: #10B981;
+}
+
+.btn-slot-chart:hover {
+  background: var(--primary-purple);
+  color: white;
+  border-color: var(--primary-purple);
+}
+
+.btn-slot-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+  color: #10B981;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-slot-check:hover {
+  background: #10B981;
+  color: white;
+}
+
+.btn-checked {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3B82F6;
+}
+
+.empty-today-agenda {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px;
+  text-align: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.empty-cal-icon {
+  color: var(--primary-purple-light);
+  margin-bottom: 6px;
+}
+
+.empty-today-agenda h4 {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .empty-today-agenda h4 {
+  color: #F8FAFC;
+}
+
+.empty-today-agenda p {
+  font-size: 0.82rem;
+  max-width: 440px;
+}
+
+.agenda-section-title-wrap {
+  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+.agenda-sub-heading {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .agenda-sub-heading {
+  color: #FFFFFF;
+}
+
+.agenda-sub-desc {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+
 
 
