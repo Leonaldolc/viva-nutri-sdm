@@ -40,12 +40,14 @@ import PatientRegisterPage from './PatientRegisterPage';
 import BirthdayModal from './BirthdayModal';
 import BirthdayAlertsCard from './BirthdayAlertsCard';
 import TodayAppointmentsWidget from './TodayAppointmentsWidget';
+import ClinicalCalendarView from './ClinicalCalendarView';
 import { 
   getDashboardMetrics, 
   subscribeDashboardUpdates, 
   agendarRetornoRapido,
   getAniversariantesInfo
 } from '../services/dashboardService';
+
 
 
 export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
@@ -264,75 +266,20 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
         )}
 
         {/* =========================================================================
-            3. AGENDA CLÍNICA
+            3. AGENDA CLÍNICA & CALENDÁRIO (DIA, SEMANA, MÊS)
             ========================================================================= */}
         {activeNav === 'agenda' && (
-          <div className="agenda-view-container animated-fade-in">
-            <div className="patients-view-header">
-              <div className="header-titles">
-                <div className="badge-patients-count" style={{ background: 'rgba(249, 115, 22, 0.15)', color: 'var(--primary-orange)' }}>
-                  <Calendar size={16} />
-                  <span>{metrics.consultasSemana} Consultas Agendadas nesta Semana</span>
-                </div>
-                <h1 className="view-title">Agenda Clínica & Atendimentos</h1>
-                <p className="view-subtitle">Organize suas consultas de hoje, retornos periódicos e horários clínicos.</p>
-              </div>
-            </div>
-
-            {/* Painel de Consultas de Hoje */}
-            <div style={{ marginBottom: '24px' }}>
-              <TodayAppointmentsWidget 
-                consultasHoje={metrics.consultasHojeLista || []}
-                onSelectPatient={(p) => {
-                  const fullP = metrics.pacientesAnaliticos.find(item => item.id === p.id) || p;
-                  setSelectedPatient(fullP);
-                }}
-                onStatusUpdated={() => loadData()}
-                nutricionistaId={nutricionistaId}
-              />
-            </div>
-
-            <div className="agenda-section-title-wrap">
-              <h3 className="agenda-sub-heading">📅 Demais Consultas da Semana</h3>
-              <p className="agenda-sub-desc">Atendimentos confirmados e programados para os próximos dias.</p>
-            </div>
-
-            <div className="agenda-cards-grid">
-              {metrics.consultasSemanaLista && metrics.consultasSemanaLista.length > 0 ? (
-                metrics.consultasSemanaLista.map(c => (
-                  <div 
-                    key={c.id} 
-                    className="agenda-item-card"
-                    onClick={() => {
-                      const fullP = metrics.pacientesAnaliticos.find(item => item.id === c.paciente_id) || { id: c.paciente_id, nome: c.paciente_nome };
-                      setSelectedPatient(fullP);
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="agenda-item-date">
-                      <Calendar size={16} className="agenda-icon" />
-                      <span>{new Date(c.data_consulta).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="agenda-item-patient">
-                      <div className="agenda-avatar">{c.paciente_nome ? c.paciente_nome.charAt(0).toUpperCase() : '?'}</div>
-                      <div>
-                        <strong className="agenda-patient-name">{c.paciente_nome}</strong>
-                        <span className="agenda-type-pill">{c.tipo || 'Consulta de Retorno'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state-card">
-                  <CheckCircle2 size={36} className="empty-icon-success" />
-                  <h3>Nenhuma consulta pendente para os próximos dias</h3>
-                  <p>Utilize a ação rápida na lista de pacientes para agendar um retorno.</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <ClinicalCalendarView
+            pacientes={metrics.pacientesAnaliticos}
+            onSelectPatient={(p) => {
+              const fullP = metrics.pacientesAnaliticos.find(item => item.id === p.id) || p;
+              setSelectedPatient(fullP);
+            }}
+            nutricionistaId={nutricionistaId}
+            onRefreshParent={() => loadData()}
+          />
         )}
+
 
         {/* =========================================================================
             4. TELA ANALYTICS BI (DASHBOARD)

@@ -330,29 +330,87 @@ function getInitialAppointments(nutricionistaId) {
       status: 'agendada',
       tipo: 'Revisão Calórica & Treino'
     },
-    // Consultas da Semana
+    // Consultas nos dias anteriores e posteriores do MÊS ATUAL
     {
-      id: 'cons_1',
+      id: 'cons_m_1',
+      nutricionista_id: nutricionistaId,
+      paciente_id: 'pac_2',
+      paciente_nome: 'Carlos Eduardo Mendes',
+      paciente_telefone: '(11) 97123-8899',
+      paciente_email: 'carlos.mendes@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 4, 10, 0).toISOString(),
+      status: 'realizada',
+      tipo: 'Avaliação Inicial de Glicemia'
+    },
+    {
+      id: 'cons_m_2',
+      nutricionista_id: nutricionistaId,
+      paciente_id: 'pac_7',
+      paciente_nome: 'Camila Vasconcelos',
+      paciente_telefone: '(11) 97788-9900',
+      paciente_email: 'camila.vasc@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 15, 0).toISOString(),
+      status: 'realizada',
+      tipo: 'Revisão Pós-Parto'
+    },
+    {
+      id: 'cons_m_3',
       nutricionista_id: nutricionistaId,
       paciente_id: 'pac_8',
       paciente_nome: 'Juliana Paes Costa',
-      data_consulta: getDayInCurrentWeek(3, 11), // Quinta
-      diaSemana: 'Qui',
-      status: 'agendada',
-      tipo: 'Avaliação Exames'
+      paciente_telefone: '(11) 96655-4433',
+      paciente_email: 'juliana.costa@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 10, 30).toISOString(),
+      status: 'confirmada',
+      tipo: 'Avaliação Perfil Lipídico'
     },
     {
-      id: 'cons_2',
+      id: 'cons_m_4',
       nutricionista_id: nutricionistaId,
       paciente_id: 'pac_3',
       paciente_nome: 'Beatriz Almeida',
-      data_consulta: getDayInCurrentWeek(4, 15), // Sexta
-      diaSemana: 'Sex',
+      paciente_telefone: '(21) 99456-1122',
+      paciente_email: 'beatriz.almeida@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 4, 14, 0).toISOString(),
       status: 'agendada',
       tipo: 'Reeducação Alimentar'
+    },
+    {
+      id: 'cons_m_5',
+      nutricionista_id: nutricionistaId,
+      paciente_id: 'pac_4',
+      paciente_nome: 'Lucas Fontes',
+      paciente_telefone: '(19) 98112-3344',
+      paciente_email: 'lucas.fontes@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 16, 0).toISOString(),
+      status: 'agendada',
+      tipo: 'Hipertrofia & Suplementação'
+    },
+    {
+      id: 'cons_m_6',
+      nutricionista_id: nutricionistaId,
+      paciente_id: 'pac_1',
+      paciente_nome: 'Mariana Silveira',
+      paciente_telefone: '(11) 98765-4321',
+      paciente_email: 'mariana.silveira@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 11, 9, 30).toISOString(),
+      status: 'agendada',
+      tipo: 'Bioimpedância Mensal'
+    },
+    {
+      id: 'cons_m_7',
+      nutricionista_id: nutricionistaId,
+      paciente_id: 'pac_5',
+      paciente_nome: 'Fernanda Rocha',
+      paciente_telefone: '(31) 98877-6655',
+      paciente_email: 'fernanda.rocha@email.com',
+      data_consulta: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 15, 11, 0).toISOString(),
+      status: 'agendada',
+      tipo: 'FODMAP Fase 2'
     }
   ];
 }
+
 
 
 function loadDatabase(nutricionistaId) {
@@ -674,6 +732,27 @@ export async function atualizarStatusConsulta(consultaId, novoStatus, nutricioni
   notifyDatabaseChange();
   return updated.find(c => c.id === consultaId);
 }
+
+/**
+ * Retorna todas as consultas registradas para a nutricionista
+ */
+export async function getTodasConsultas(nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+  return [...consultas].sort((a, b) => new Date(a.data_consulta) - new Date(b.data_consulta));
+}
+
+/**
+ * Remove ou desmarca uma consulta
+ */
+export async function desmarcarConsulta(consultaId, nutricionistaId) {
+  const { consultas } = loadDatabase(nutricionistaId);
+  const updated = consultas.filter(c => c.id !== consultaId);
+  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return true;
+}
+
+
 
 
 export async function getPacientes(nutricionistaId) {
