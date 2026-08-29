@@ -705,7 +705,10 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
       {/* Modal de Perfil e Prontuário do Paciente */}
       {selectedPatient && (
         <PatientProfileModal
-          paciente={selectedPatient}
+          paciente={(() => {
+            const full = metrics.pacientesAnaliticos?.find(p => p.id === selectedPatient.id);
+            return full ? { ...full, ...selectedPatient } : selectedPatient;
+          })()}
           onClose={() => setSelectedPatient(null)}
           onActionSuccess={() => loadData()}
           nutricionistaId={nutricionistaId}

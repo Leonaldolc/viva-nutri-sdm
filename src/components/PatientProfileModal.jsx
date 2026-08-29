@@ -648,6 +648,10 @@ export default function PatientProfileModal({
     return i === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`;
   }, '');
 
+  const areaD = svgPoints.length > 0 
+    ? `${pathD} L ${svgPoints[svgPoints.length - 1].x},150 L ${svgPoints[0].x},150 Z` 
+    : '';
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card patient-evolution-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
