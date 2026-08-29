@@ -504,28 +504,156 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
   };
 }
 
+export async function getPacientes(nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+  return pacientes;
+}
+
+export async function getPacienteById(pacienteId, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+  return pacientes.find(p => p.id === pacienteId) || null;
+}
+
 export async function cadastrarPaciente(pacienteData, nutricionistaId) {
   const { pacientes } = loadDatabase(nutricionistaId);
+  const now = new Date().toISOString();
   
+  // Formatador de objetivo principal
+  const objetivosList = Array.isArray(pacienteData.objetivos) && pacienteData.objetivos.length > 0
+    ? pacienteData.objetivos
+    : (pacienteData.objetivo ? [pacienteData.objetivo] : ['Saúde geral']);
+
+  const objetivoPrincipal = pacienteData.objetivoDetalhes 
+    ? `${objetivosList.join(', ')} (${pacienteData.objetivoDetalhes})`
+    : objetivosList.join(', ');
+
+  const pesoNum = pacienteData.pesoAtual ? Number(pacienteData.pesoAtual) : null;
+  const alturaNum = pacienteData.altura ? Number(pacienteData.altura) : null;
+  
+  let imcCalculado = null;
+  if (pesoNum && alturaNum && alturaNum > 0) {
+    const alturaMetros = alturaNum / 100;
+    imcCalculado = Number((pesoNum / (alturaMetros * alturaMetros)).toFixed(1));
+  }
+
   const novoPaciente = {
     id: `pac_${Date.now()}`,
     nutricionista_id: nutricionistaId,
+    
+    // Aba 1 - Pessoal
     nome: pacienteData.nome.trim(),
-    email: pacienteData.email?.trim() || '',
+    dataNascimento: pacienteData.dataNascimento || '',
+    idade: pacienteData.idade || null,
+    sexo: pacienteData.sexo || 'Não informado',
     telefone: pacienteData.telefone?.trim() || '',
-    objetivo: pacienteData.objetivo?.trim() || 'Acompanhamento Geral',
-    categoria: pacienteData.objetivo?.trim() || 'Emagrecimento',
+    whatsapp: pacienteData.whatsapp?.trim() || pacienteData.telefone?.trim() || '',
+    email: pacienteData.email?.trim() || '',
+
+    // Aba 2 - Clínico
+    pesoAtual: pesoNum || 70,
+    pesoInicial: pesoNum || 70,
+    altura: alturaNum || 170,
+    imc: imcCalculado || (pacienteData.imc ? Number(pacienteData.imc) : null),
+    objetivos: objetivosList,
+    objetivoDetalhes: pacienteData.objetivoDetalhes || '',
+    objetivo: objetivoPrincipal,
+    categoria: objetivosList[0] || 'Saúde geral',
+    nivelAtividade: pacienteData.nivelAtividade || 'Sedentário',
+    patologias: Array.isArray(pacienteData.patologias) ? pacienteData.patologias : [],
+    restricoesAlimentares: Array.isArray(pacienteData.restricoesAlimentares) ? pacienteData.restricoesAlimentares : [],
+    alergiasAlimentares: Array.isArray(pacienteData.alergiasAlimentares) ? pacienteData.alergiasAlimentares : [],
+    medicamentosContinuos: pacienteData.medicamentosContinuos || '',
+    suplementos: pacienteData.suplementos || '',
+
+    // Aba 3 - Hábitos
+    refeicoesPorDia: pacienteData.refeicoesPorDia ? Number(pacienteData.refeicoesPorDia) : 4,
+    horarioAcorda: pacienteData.horarioAcorda || '07:00',
+    horarioDorme: pacienteData.horarioDorme || '23:00',
+    aguaPorDia: pacienteData.aguaPorDia ? Number(pacienteData.aguaPorDia) : 2,
+    praticaAtividadeFisica: Boolean(pacienteData.praticaAtividadeFisica),
+    atividadeFisicaDetalhes: pacienteData.atividadeFisicaDetalhes || '',
+    observacoesGerais: pacienteData.observacoesGerais || '',
+
+    // Métricas analíticas e histórico inicial
     status: 'ativo',
     adesaoPlano: 85,
     consultasTotais: 1,
-    ultima_consulta: new Date().toISOString(),
-    created_at: new Date().toISOString()
+    gorduraAtual: 24,
+    gorduraInicial: 24,
+    massaMagraAtual: 30,
+    massaMagraInicial: 30,
+    cinturaAtual: 82,
+    cinturaInicial: 82,
+    historicoEvolucao: [
+      {
+        data: now,
+        peso: pesoNum || 70,
+        gordura: 24,
+        massaMagra: 30,
+        cintura: 82,
+        adesao: 85,
+        notas: 'Primeira consulta e cadastro do paciente'
+      }
+    ],
+    ultima_consulta: now,
+    created_at: now
   };
 
   const updatedPacientes = [novoPaciente, ...pacientes];
   localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updatedPacientes));
   notifyDatabaseChange();
   return novoPaciente;
+}
+
+export async function atualizarPaciente(pacienteId, dadosAtualizados, nutricionistaId) {
+  const { pacientes } = loadDatabase(nutricionistaId);
+
+  const updated = pacientes.map(p => {
+    if (p.id !== pacienteId) return p;
+
+    // Recalcular IMC se peso ou altura foram atualizados
+    const pesoNum = dadosAtualizados.pesoAtual !== undefined ? Number(dadosAtualizados.pesoAtual) : p.pesoAtual;
+    const alturaNum = dadosAtualizados.altura !== undefined ? Number(dadosAtualizados.altura) : p.altura;
+    let imcCalculado = p.imc;
+    if (pesoNum && alturaNum && alturaNum > 0) {
+      const alturaMetros = alturaNum / 100;
+      imcCalculado = Number((pesoNum / (alturaMetros * alturaMetros)).toFixed(1));
+    }
+
+    const objetivosList = dadosAtualizados.objetivos !== undefined 
+      ? dadosAtualizados.objetivos 
+      : (p.objetivos || [p.objetivo]);
+
+    const objetivoPrincipal = dadosAtualizados.objetivoDetalhes !== undefined || dadosAtualizados.objetivos !== undefined
+      ? (dadosAtualizados.objetivoDetalhes ? `${objetivosList.join(', ')} (${dadosAtualizados.objetivoDetalhes})` : objetivosList.join(', '))
+      : (dadosAtualizados.objetivo || p.objetivo);
+
+    return {
+      ...p,
+      ...dadosAtualizados,
+      pesoAtual: pesoNum,
+      altura: alturaNum,
+      imc: imcCalculado,
+      objetivos: objetivosList,
+      objetivo: objetivoPrincipal
+    };
+  });
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+  notifyDatabaseChange();
+  return updated.find(p => p.id === pacienteId);
+}
+
+export async function excluirPaciente(pacienteId, nutricionistaId) {
+  const { pacientes, consultas } = loadDatabase(nutricionistaId);
+
+  const updatedPacientes = pacientes.filter(p => p.id !== pacienteId);
+  const updatedConsultas = consultas.filter(c => c.paciente_id !== pacienteId);
+
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updatedPacientes));
+  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updatedConsultas));
+  notifyDatabaseChange();
+  return true;
 }
 
 export async function agendarConsulta({ pacienteId, pacienteNome, dataConsulta, tipo }, nutricionistaId) {
@@ -601,4 +729,5 @@ export async function adicionarMedicaoEvolucao(pacienteId, medicao, nutricionist
   notifyDatabaseChange();
   return updated.find(p => p.id === pacienteId);
 }
+
 
