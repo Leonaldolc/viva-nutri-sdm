@@ -17,19 +17,39 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Trash2,
-  Edit3
+  Edit3,
+  PartyPopper,
+  Cake,
+  Gift
 } from 'lucide-react';
+import BirthdayAlertsCard from './BirthdayAlertsCard';
+import { getAniversariantesInfo } from '../services/dashboardService';
 
 export default function PatientsList({ 
   pacientes = [], 
   onSelectPatient, 
   onOpenNewPatientForm, 
   loading = false,
-  onRefresh
+  onRefresh,
+  onParabenizar
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedObjective, setSelectedObjective] = useState('todos');
-  const [sortBy, setSortBy] = useState('recente'); // 'recente' | 'nome' | 'antigo'
+  const [sortBy, setSortBy] = useState('recente'); // 'recente' | 'nome' | 'antigo' | 'aniversario'
+
+  // Análise de aniversariantes
+  const aniversariantesData = useMemo(() => {
+    return getAniversariantesInfo(pacientes);
+  }, [pacientes]);
+
+  // Mapa rápido de aniversariantes por ID do paciente
+  const bdayMap = useMemo(() => {
+    const map = {};
+    aniversariantesData.todos.forEach(item => {
+      map[item.paciente.id] = item;
+    });
+    return map;
+  }, [aniversariantesData]);
 
   // Lista única de objetivos para filtro
   const availableObjectives = useMemo(() => {
@@ -74,13 +94,19 @@ export default function PatientsList({
       list.sort((a, b) => a.nome.localeCompare(b.nome));
     } else if (sortBy === 'antigo') {
       list.sort((a, b) => new Date(a.ultima_consulta || 0) - new Date(b.ultima_consulta || 0));
+    } else if (sortBy === 'aniversario') {
+      list.sort((a, b) => {
+        const itemA = bdayMap[a.id]?.diffDays ?? 999;
+        const itemB = bdayMap[b.id]?.diffDays ?? 999;
+        return itemA - itemB;
+      });
     } else {
       // recente (padrão)
       list.sort((a, b) => new Date(b.ultima_consulta || b.created_at || 0) - new Date(a.ultima_consulta || a.created_at || 0));
     }
 
     return list;
-  }, [pacientes, searchTerm, selectedObjective, sortBy]);
+  }, [pacientes, searchTerm, selectedObjective, sortBy, bdayMap]);
 
   const formatDate = (isoString) => {
     if (!isoString) return 'Sem registro';
@@ -103,7 +129,7 @@ export default function PatientsList({
           </div>
           <h1 className="view-title">Base de Pacientes</h1>
           <p className="view-subtitle">
-            Gerencie prontuários, planos alimentares e acompanhe o histórico clínico dos seus pacientes.
+            Gerencie prontuários, planos alimentares, exames e alertas de aniversário dos seus pacientes.
           </p>
         </div>
 
@@ -118,6 +144,14 @@ export default function PatientsList({
           </button>
         </div>
       </div>
+
+      {/* WIDGET DE ALERTA DE ANIVERSARIANTES */}
+      {aniversariantesData.totalAniversariantes > 0 && onParabenizar && (
+        <BirthdayAlertsCard 
+          aniversariantesData={aniversariantesData}
+          onParabenizar={onParabenizar}
+        />
+      )}
 
       {/* Barra de Filtros e Busca */}
       <div className="patients-control-toolbar">
@@ -164,6 +198,7 @@ export default function PatientsList({
               onChange={(e) => setSortBy(e.target.value)}
             >
               <option value="recente">Mais Recentes</option>
+              <option value="aniversario">🎂 Próximos Aniversários</option>
               <option value="nome">Nome (A - Z)</option>
               <option value="antigo">Mais Antigos</option>
             </select>
@@ -226,16 +261,42 @@ export default function PatientsList({
             const initial = paciente.nome ? paciente.nome.charAt(0).toUpperCase() : '?';
             const objetivoText = paciente.objetivo || 'Acompanhamento Geral';
             const ultimaConsultaText = formatDate(paciente.ultima_consulta);
+            const bdayInfo = bdayMap[paciente.id];
 
             return (
               <div 
                 key={paciente.id}
-                className="patient-interactive-card"
+                className={`patient-interactive-card ${bdayInfo?.isToday ? 'card-birthday-today' : ''}`}
                 onClick={() => onSelectPatient(paciente)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectPatient(paciente); }}
               >
+                {/* Banner de Aniversário no Topo do Card */}
+                {bdayInfo && (
+                  <div className={`card-birthday-badge ${bdayInfo.isToday ? 'badge-bday-today' : 'badge-bday-soon'}`}>
+                    <PartyPopper size={13} />
+                    <span>
+                      {bdayInfo.isToday 
+                        ? `🎉 Aniversário Hoje! (${bdayInfo.idadeNova} anos)` 
+                        : `🎂 Aniversário em ${bdayInfo.diffDays} dias (${String(bdayInfo.birthDay).padStart(2,'0')}/${String(bdayInfo.birthMonth).padStart(2,'0')})`}
+                    </span>
+                    {onParabenizar && (
+                      <button 
+                        type="button" 
+                        className="btn-congratulate-inline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onParabenizar(paciente, bdayInfo.idadeNova);
+                        }}
+                        title="Enviar parabéns por e-mail ou WhatsApp"
+                      >
+                        <Mail size={12} /> Parabenizar
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="card-top-row">
                   <div className="patient-avatar-box">
                     <span className="avatar-letter">{initial}</span>
@@ -296,6 +357,11 @@ export default function PatientsList({
                   )}
                   {paciente.imc && (
                     <span className="mini-tag mini-tag-purple">IMC {paciente.imc}</span>
+                  )}
+                  {paciente.anexos && paciente.anexos.length > 0 && (
+                    <span className="mini-tag mini-tag-orange" title={`${paciente.anexos.length} anexo(s)`}>
+                      📎 {paciente.anexos.length}
+                    </span>
                   )}
                   <span className="view-profile-hint">Ver Prontuário ➔</span>
                 </div>

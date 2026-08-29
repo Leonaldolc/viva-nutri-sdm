@@ -16,6 +16,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Mariana Silveira',
       email: 'mariana.silveira@email.com',
       telefone: '(11) 98765-4321',
+      dataNascimento: '1996-08-29', // Aniversário Hoje!
+      idade: 30,
+      sexo: 'Feminino',
       objetivo: 'Emagrecimento',
       categoria: 'Emagrecimento',
       status: 'ativo',
@@ -44,6 +47,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Carlos Eduardo Mendes',
       email: 'carlos.mendes@email.com',
       telefone: '(11) 97123-8899',
+      dataNascimento: '1985-08-31', // Aniversário em 2 dias!
+      idade: 41,
+      sexo: 'Masculino',
       objetivo: 'Controle de Diabetes Tipo 2',
       categoria: 'Doenças Crônicas',
       status: 'ativo',
@@ -73,6 +79,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Beatriz Almeida',
       email: 'beatriz.almeida@email.com',
       telefone: '(21) 99456-1122',
+      dataNascimento: '1999-09-02', // Aniversário em 4 dias!
+      idade: 27,
+      sexo: 'Feminino',
       objetivo: 'Reeducação Alimentar',
       categoria: 'Reeducação Alimentar',
       status: 'ativo',
@@ -100,6 +109,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Lucas Fontes',
       email: 'lucas.fontes@email.com',
       telefone: '(19) 98112-3344',
+      dataNascimento: '1993-09-12',
+      idade: 33,
+      sexo: 'Masculino',
       objetivo: 'Hipertrofia & Nutrição Esportiva',
       categoria: 'Hipertrofia',
       status: 'ativo',
@@ -129,6 +141,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Fernanda Rocha',
       email: 'fernanda.rocha@email.com',
       telefone: '(31) 98877-6655',
+      dataNascimento: '1990-09-20',
+      idade: 36,
+      sexo: 'Feminino',
       objetivo: 'Saúde Intestinal e FODMAP',
       categoria: 'Saúde Intestinal',
       status: 'ativo',
@@ -157,6 +172,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Rodrigo Guimarães',
       email: 'rodrigo.g@email.com',
       telefone: '(41) 99234-5566',
+      dataNascimento: '1988-10-05',
+      idade: 38,
+      sexo: 'Masculino',
       objetivo: 'Ganho de Massa Magra',
       categoria: 'Hipertrofia',
       status: 'ativo',
@@ -185,6 +203,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Camila Vasconcelos',
       email: 'camila.vasc@email.com',
       telefone: '(11) 97788-9900',
+      dataNascimento: '1995-11-14',
+      idade: 31,
+      sexo: 'Feminino',
       objetivo: 'Emagrecimento Pós-Parto',
       categoria: 'Emagrecimento',
       status: 'ativo',
@@ -212,6 +233,9 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Juliana Paes Costa',
       email: 'juliana.costa@email.com',
       telefone: '(11) 96655-4433',
+      dataNascimento: '1991-12-22',
+      idade: 35,
+      sexo: 'Feminino',
       objetivo: 'Controle de Colesterol & Dislipidemia',
       categoria: 'Doenças Crônicas',
       status: 'ativo',
@@ -236,6 +260,7 @@ function getInitialPatients(nutricionistaId) {
     }
   ];
 }
+
 
 function getInitialAppointments(nutricionistaId) {
   const now = new Date();
@@ -312,9 +337,30 @@ function loadDatabase(nutricionistaId) {
     let pacientes = JSON.parse(localStorage.getItem(STORAGE_KEY_PACIENTES) || 'null');
     let consultas = JSON.parse(localStorage.getItem(STORAGE_KEY_CONSULTAS) || 'null');
 
+    const initialMock = getInitialPatients(nutricionistaId);
+
     if (!pacientes || !Array.isArray(pacientes)) {
-      pacientes = getInitialPatients(nutricionistaId);
+      pacientes = initialMock;
       localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(pacientes));
+    } else {
+      // Enriquecer pacientes que não tenham data de nascimento
+      let modified = false;
+      pacientes = pacientes.map((p, idx) => {
+        if (!p.dataNascimento) {
+          modified = true;
+          const matchInitial = initialMock.find(im => im.id === p.id) || initialMock[idx % initialMock.length];
+          return {
+            ...p,
+            dataNascimento: matchInitial?.dataNascimento || '1996-08-29',
+            idade: matchInitial?.idade || 30
+          };
+        }
+        return p;
+      });
+
+      if (modified) {
+        localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(pacientes));
+      }
     }
 
     if (!consultas || !Array.isArray(consultas)) {
@@ -349,6 +395,76 @@ export function subscribeDashboardUpdates(callback) {
     listeners.delete(callback);
   };
 }
+
+/**
+ * Retorna informações de aniversariantes (Hoje, Esta Semana, Este Mês)
+ */
+export function getAniversariantesInfo(pacientes = []) {
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1; // 1-12
+  const currentDay = today.getDate(); // 1-31
+
+  const list = [];
+
+  pacientes.forEach(p => {
+    if (!p.dataNascimento) return;
+    const parts = p.dataNascimento.split('-');
+    if (parts.length < 3) return;
+
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10);
+    const birthDay = parseInt(parts[2], 10);
+
+    if (isNaN(birthMonth) || isNaN(birthDay)) return;
+
+    // Calcular dias até o aniversário no ano atual ou próximo
+    let nextBday = new Date(today.getFullYear(), birthMonth - 1, birthDay);
+    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    if (nextBday < todayZero) {
+      nextBday = new Date(today.getFullYear() + 1, birthMonth - 1, birthDay);
+    }
+
+    const diffTime = nextBday.getTime() - todayZero.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    const isToday = (birthMonth === currentMonth && birthDay === currentDay);
+    const isThisWeek = diffDays >= 0 && diffDays <= 7;
+    const isThisMonth = (birthMonth === currentMonth);
+
+    // Idade que está completando
+    const idadeNova = today.getFullYear() - birthYear + (nextBday.getFullYear() > today.getFullYear() ? 1 : 0);
+
+    if (isThisMonth || isThisWeek || isToday) {
+      list.push({
+        paciente: p,
+        birthDay,
+        birthMonth,
+        diffDays,
+        isToday,
+        isThisWeek,
+        isThisMonth,
+        idadeNova: idadeNova > 0 ? idadeNova : (p.idade || 30)
+      });
+    }
+  });
+
+  // Ordenar pelos aniversários mais próximos
+  list.sort((a, b) => a.diffDays - b.diffDays);
+
+  const aniversariantesHoje = list.filter(item => item.isToday);
+  const aniversariantesSemana = list.filter(item => !item.isToday && item.isThisWeek);
+  const aniversariantesMes = list.filter(item => !item.isToday && !item.isThisWeek && item.isThisMonth);
+
+  return {
+    todos: list,
+    aniversariantesHoje,
+    aniversariantesSemana,
+    aniversariantesMes,
+    totalAniversariantes: list.length
+  };
+}
+
 
 /**
  * Motor Analítico e BI do VIVA NUTRI

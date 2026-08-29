@@ -37,10 +37,13 @@ import PatientProfileModal from './PatientProfileModal';
 import NewPatientModal from './NewPatientModal';
 import PatientsList from './PatientsList';
 import PatientRegisterPage from './PatientRegisterPage';
+import BirthdayModal from './BirthdayModal';
+import BirthdayAlertsCard from './BirthdayAlertsCard';
 import { 
   getDashboardMetrics, 
   subscribeDashboardUpdates, 
-  agendarRetornoRapido 
+  agendarRetornoRapido,
+  getAniversariantesInfo
 } from '../services/dashboardService';
 
 export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
@@ -51,6 +54,8 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [bdayCongratulateTarget, setBdayCongratulateTarget] = useState(null);
+
 
   const [metrics, setMetrics] = useState({
     totalPacientes: 0,
@@ -78,7 +83,12 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
   const userName = user?.name || user?.email?.split('@')[0] || 'Nutricionista';
   const userInitial = userName.charAt(0).toUpperCase();
 
+  const aniversariantesData = useMemo(() => {
+    return getAniversariantesInfo(metrics.pacientesAnaliticos || []);
+  }, [metrics.pacientesAnaliticos]);
+
   const loadData = async (isManualRefresh = false) => {
+
     if (isManualRefresh) setRefreshing(true);
     try {
       const data = await getDashboardMetrics(nutricionistaId, timeframe);
@@ -226,6 +236,7 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
             onOpenNewPatientForm={() => setActiveNav('novo-paciente')}
             loading={loading}
             onRefresh={() => loadData(true)}
+            onParabenizar={(p, idade) => setBdayCongratulateTarget({ paciente: p, idadeNova: idade })}
           />
         )}
 
@@ -409,6 +420,16 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
                 <span className="bi-trend-alert">{metrics.criticosCount} críticos</span>
               </div>
             </section>
+
+            {/* WIDGET DE ANIVERSARIANTES NO DASHBOARD */}
+            {aniversariantesData.totalAniversariantes > 0 && (
+              <section style={{ marginBottom: '24px' }}>
+                <BirthdayAlertsCard 
+                  aniversariantesData={aniversariantesData}
+                  onParabenizar={(p, idade) => setBdayCongratulateTarget({ paciente: p, idadeNova: idade })}
+                />
+              </section>
+            )}
 
             {/* GRID DE KPIS PRINCIPAIS */}
             <section className="kpi-grid">
@@ -701,6 +722,16 @@ export default function Dashboard({ user, onLogout, theme, onToggleTheme }) {
           onClose={() => setShowNewPatientModal(false)}
           onCreated={() => loadData()}
           nutricionistaId={nutricionistaId}
+        />
+      )}
+
+      {/* Modal de Parabenização de Aniversário */}
+      {bdayCongratulateTarget && (
+        <BirthdayModal
+          paciente={bdayCongratulateTarget.paciente}
+          idadeNova={bdayCongratulateTarget.idadeNova}
+          nutriNome={userName}
+          onClose={() => setBdayCongratulateTarget(null)}
         />
       )}
     </div>
