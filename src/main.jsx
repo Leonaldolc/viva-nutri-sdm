@@ -21,6 +21,15 @@ class GlobalErrorBoundary extends Component {
     console.error('Erro global capturado:', error, errorInfo);
   }
 
+  handleRecover = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -41,27 +50,44 @@ class GlobalErrorBoundary extends Component {
             borderRadius: '20px',
             backgroundColor: '#0F172A',
             border: '1px solid rgba(124, 58, 237, 0.4)',
-            maxWidth: '480px',
+            maxWidth: '520px',
             boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
           }}>
             <h2 style={{ margin: '0 0 12px 0', fontSize: '1.3rem', color: '#F87171' }}>Ops! Ocorreu uma instabilidade</h2>
-            <p style={{ fontSize: '0.9rem', color: '#94A3B8', marginBottom: '20px' }}>
-              Clique no botão abaixo para recarregar o sistema VIVA NUTRI com segurança.
+            <p style={{ fontSize: '0.9rem', color: '#94A3B8', marginBottom: '14px' }}>
+              Clique no botão abaixo para restaurar o sistema VIVA NUTRI.
             </p>
+
+            {this.state.error && (
+              <div style={{
+                textAlign: 'left',
+                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                color: '#FCA5A5',
+                fontFamily: 'monospace',
+                marginBottom: '20px',
+                maxHeight: '120px',
+                overflowY: 'auto'
+              }}>
+                {this.state.error.message || String(this.state.error)}
+              </div>
+            )}
+
             <button
-              onClick={() => {
-                localStorage.clear();
-                window.location.href = '/';
-              }}
+              onClick={this.handleRecover}
               style={{
-                padding: '12px 24px',
+                padding: '12px 28px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #7C3AED 0%, #6366F1 100%)',
                 color: '#FFFFFF',
                 border: 'none',
                 fontWeight: 700,
                 fontSize: '0.92rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)'
               }}
             >
               Recarregar Sistema
