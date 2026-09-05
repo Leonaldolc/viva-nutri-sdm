@@ -1186,259 +1186,289 @@ export default function PatientProfileModal({
           )}
 
           {/* =========================================================================
-              ABA 2: PRONTUÁRIO COMPLETO & EDIÇÃO DIRETA (CRUD) - DADOS DO PACIENTE
+              ABA 2: PRONTUÁRIO COMPLETO & EDIÇÃO DIRETA DA FICHA CADASTRAL (CRUD)
               ========================================================================= */}
           {activeTab === 'prontuario' && (
             <div className="prontuario-crud-tab animated-fade-in">
-              <div className="crud-toolbar">
-                <div>
-                  <h3 className="crud-section-title">Dados do Paciente</h3>
-                  <p className="crud-section-desc">Visualize e atualize diretamente todos os dados pessoais, clínicos e hábitos.</p>
+              <form onSubmit={handleSalvarProntuario} className="crud-edit-form">
+                {/* Toolbar da Ficha Cadastral com Botão Salvar em Destaque */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    padding: '16px 20px',
+                    borderRadius: '16px',
+                    backgroundColor: 'rgba(30, 41, 59, 0.65)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    marginBottom: '16px'
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <User size={20} color="#A78BFA" /> Ficha Cadastral & Dados do Paciente
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#94A3B8' }}>
+                      Ajuste qualquer dado cadastral, clínico ou de hábitos de {paciente.nome} e clique em salvar.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 22px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontWeight: 800,
+                        fontSize: '0.92rem',
+                        cursor: submitting ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <Save size={16} />
+                      <span>{submitting ? 'Salvando...' : 'Salvar Alterações'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-delete-patient"
+                      onClick={handleExcluirPaciente}
+                      title="Excluir paciente permanentemente"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#F87171',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Trash2 size={15} />
+                      <span>Excluir Paciente</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="crud-actions-buttons">
-                  {!isEditingProntuario ? (
-                    <button
-                      type="button"
-                      className="btn-edit-mode"
-                      onClick={() => setIsEditingProntuario(true)}
-                    >
-                      <Edit3 size={15} />
-                      <span>Editar Dados</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-cancel-edit"
-                      onClick={() => setIsEditingProntuario(false)}
-                    >
-                      Cancelar Edição
-                    </button>
-                  )}
+
+                {/* 1. Dados Pessoais */}
+                <div className="crud-category-box">
+                  <h4 className="crud-cat-title"><User size={16} color="#A78BFA" /> 1. Dados Pessoais & Contato</h4>
+                  <div className="form-row grid-2">
+                    <div className="form-group">
+                      <label className="form-label">Nome Completo *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editNome}
+                        onChange={(e) => setEditNome(e.target.value)}
+                        placeholder="Nome completo do paciente"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Data de Nascimento</label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={editDataNasc}
+                        onChange={(e) => setEditDataNasc(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Telefone</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editTelefone}
+                        onChange={(e) => setEditTelefone(e.target.value)}
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">WhatsApp</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editWhatsapp}
+                        onChange={(e) => setEditWhatsapp(e.target.value)}
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+                    <div className="form-group full-grid-width">
+                      <label className="form-label">E-mail</label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        placeholder="paciente@exemplo.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Dados Clínicos & Antropometria */}
+                <div className="crud-category-box">
+                  <h4 className="crud-cat-title"><Activity size={16} color="#38BDF8" /> 2. Dados Clínicos & Antropometria</h4>
+                  <div className="form-row grid-2">
+                    <div className="form-group">
+                      <label className="form-label">Peso Atual (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="form-input"
+                        value={editPeso}
+                        onChange={(e) => setEditPeso(e.target.value)}
+                        placeholder="Ex: 75.5"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Altura (cm)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={editAltura}
+                        onChange={(e) => setEditAltura(e.target.value)}
+                        placeholder="Ex: 172"
+                      />
+                    </div>
+                    <div className="form-group full-grid-width">
+                      <label className="form-label">Objetivo Nutricional</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editObjetivo}
+                        onChange={(e) => setEditObjetivo(e.target.value)}
+                        placeholder="Ex: Emagrecimento, Ganho de massa magra, Saúde geral"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Patologias (separadas por vírgula)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editPatologias}
+                        onChange={(e) => setEditPatologias(e.target.value)}
+                        placeholder="Ex: Hipertensão, Diabetes tipo 2"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Restrições Alimentares</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editRestricoes}
+                        onChange={(e) => setEditRestricoes(e.target.value)}
+                        placeholder="Ex: Sem glúten, Vegetariano, Sem açúcar"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Alergias / Intolerâncias</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editAlergias}
+                        onChange={(e) => setEditAlergias(e.target.value)}
+                        placeholder="Ex: Lactose, Amendoim, Frutos do mar"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Medicamentos Contínuos</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editMedicamentos}
+                        onChange={(e) => setEditMedicamentos(e.target.value)}
+                        placeholder="Ex: Losartana 50mg"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Hábitos & Rotina */}
+                <div className="crud-category-box">
+                  <h4 className="crud-cat-title"><Coffee size={16} color="#FBBF24" /> 3. Hábitos & Rotina</h4>
+                  <div className="form-row grid-2">
+                    <div className="form-group">
+                      <label className="form-label">Refeições por dia</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={editRefeicoes}
+                        onChange={(e) => setEditRefeicoes(e.target.value)}
+                        placeholder="Ex: 4"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Horário que acorda</label>
+                      <input
+                        type="time"
+                        className="form-input"
+                        value={editAcorda}
+                        onChange={(e) => setEditAcorda(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Horário que dorme</label>
+                      <input
+                        type="time"
+                        className="form-input"
+                        value={editDorme}
+                        onChange={(e) => setEditDorme(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Ingestão de Água por dia (Litros)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        className="form-input"
+                        value={editAgua}
+                        onChange={(e) => setEditAgua(e.target.value)}
+                        placeholder="Ex: 2.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botões de Ação no Rodapé */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
                   <button
-                    type="button"
-                    className="btn-delete-patient"
-                    onClick={handleExcluirPaciente}
-                    title="Excluir paciente permanentemente"
+                    type="submit"
+                    className="btn-primary"
+                    disabled={submitting}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '12px 28px',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                      border: 'none',
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      boxShadow: '0 4px 18px rgba(16, 185, 129, 0.4)'
+                    }}
                   >
-                    <Trash2 size={15} />
-                    <span>Excluir</span>
+                    <Save size={18} />
+                    <span>{submitting ? 'Salvando Alterações...' : 'Salvar Alterações da Ficha'}</span>
                   </button>
                 </div>
-              </div>
-
-              {isEditingProntuario ? (
-                <form onSubmit={handleSalvarProntuario} className="crud-edit-form">
-                  <div className="crud-category-box">
-                    <h4 className="crud-cat-title"><User size={16} /> 1. Dados Pessoais</h4>
-                    <div className="form-row grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Nome Completo *</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editNome}
-                          onChange={(e) => setEditNome(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Data de Nascimento</label>
-                        <input
-                          type="date"
-                          className="form-input"
-                          value={editDataNasc}
-                          onChange={(e) => setEditDataNasc(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Telefone</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editTelefone}
-                          onChange={(e) => setEditTelefone(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">WhatsApp</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editWhatsapp}
-                          onChange={(e) => setEditWhatsapp(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group full-grid-width">
-                        <label className="form-label">E-mail</label>
-                        <input
-                          type="email"
-                          className="form-input"
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="crud-category-box">
-                    <h4 className="crud-cat-title"><Activity size={16} /> 2. Dados Clínicos & Antropometria</h4>
-                    <div className="form-row grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Peso Atual (kg)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="form-input"
-                          value={editPeso}
-                          onChange={(e) => setEditPeso(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Altura (cm)</label>
-                        <input
-                          type="number"
-                          className="form-input"
-                          value={editAltura}
-                          onChange={(e) => setEditAltura(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group full-grid-width">
-                        <label className="form-label">Objetivo Nutricional</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editObjetivo}
-                          onChange={(e) => setEditObjetivo(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Patologias (separadas por vírgula)</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editPatologias}
-                          onChange={(e) => setEditPatologias(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Restrições Alimentares</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editRestricoes}
-                          onChange={(e) => setEditRestricoes(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Alergias</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editAlergias}
-                          onChange={(e) => setEditAlergias(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Medicamentos Contínuos</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={editMedicamentos}
-                          onChange={(e) => setEditMedicamentos(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="crud-category-box">
-                    <h4 className="crud-cat-title"><Coffee size={16} /> 3. Hábitos & Rotina</h4>
-                    <div className="form-row grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Refeições por dia</label>
-                        <input
-                          type="number"
-                          className="form-input"
-                          value={editRefeicoes}
-                          onChange={(e) => setEditRefeicoes(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Horário que acorda</label>
-                        <input
-                          type="time"
-                          className="form-input"
-                          value={editAcorda}
-                          onChange={(e) => setEditAcorda(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Horário que dorme</label>
-                        <input
-                          type="time"
-                          className="form-input"
-                          value={editDorme}
-                          onChange={(e) => setEditDorme(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Água por dia (Litros)</label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          className="form-input"
-                          value={editAgua}
-                          onChange={(e) => setEditAgua(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-                    <button type="button" className="btn-secondary" onClick={() => setIsEditingProntuario(false)}>
-                      Cancelar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={submitting}>
-                      <Save size={16} /> Salvar Alterações
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                /* MODO VISUALIZAÇÃO DOS DADOS DO PRONTUÁRIO */
-                <div className="crud-view-grid">
-                  <div className="crud-view-card">
-                    <h4 className="crud-cat-title"><User size={16} /> 1. Dados Pessoais</h4>
-                    <div className="info-kv-list">
-                      <div className="info-kv"><span className="kv-k">Nome:</span><strong className="kv-v">{paciente.nome}</strong></div>
-                      <div className="info-kv"><span className="kv-k">Nascimento:</span><span className="kv-v">{paciente.dataNascimento ? new Date(paciente.dataNascimento).toLocaleDateString('pt-BR') : 'Não informado'}</span></div>
-                      <div className="info-kv"><span className="kv-k">Telefone:</span><span className="kv-v">{paciente.telefone || 'Não informado'}</span></div>
-                      <div className="info-kv"><span className="kv-k">WhatsApp:</span><span className="kv-v">{paciente.whatsapp || paciente.telefone || 'Não informado'}</span></div>
-                      <div className="info-kv"><span className="kv-k">E-mail:</span><span className="kv-v">{paciente.email || 'Não informado'}</span></div>
-                    </div>
-                  </div>
-
-                  <div className="crud-view-card">
-                    <h4 className="crud-cat-title"><Activity size={16} /> 2. Dados Clínicos & Antropometria</h4>
-                    <div className="info-kv-list">
-                      <div className="info-kv"><span className="kv-k">Peso Atual:</span><strong className="kv-v">{paciente.pesoAtual} kg</strong></div>
-                      <div className="info-kv"><span className="kv-k">Altura:</span><span className="kv-v">{paciente.altura} cm</span></div>
-                      <div className="info-kv"><span className="kv-k">Objetivo:</span><span className="kv-v badge-obj-pill">{paciente.objetivo}</span></div>
-                      <div className="info-kv"><span className="kv-k">Patologias:</span><span className="kv-v">{Array.isArray(paciente.patologias) && paciente.patologias.length > 0 ? paciente.patologias.join(', ') : 'Nenhuma'}</span></div>
-                      <div className="info-kv"><span className="kv-k">Restrições:</span><span className="kv-v">{Array.isArray(paciente.restricoesAlimentares) && paciente.restricoesAlimentares.length > 0 ? paciente.restricoesAlimentares.join(', ') : 'Nenhuma'}</span></div>
-                      <div className="info-kv"><span className="kv-k">Alergias:</span><span className="kv-v">{Array.isArray(paciente.alergiasAlimentares) && paciente.alergiasAlimentares.length > 0 ? paciente.alergiasAlimentares.join(', ') : 'Nenhuma'}</span></div>
-                    </div>
-                  </div>
-
-                  <div className="crud-view-card full-span-card">
-                    <h4 className="crud-cat-title"><Coffee size={16} /> 3. Hábitos & Rotina Diária</h4>
-                    <div className="info-kv-grid">
-                      <div className="info-kv"><span className="kv-k">Refeições/dia:</span><strong className="kv-v">{paciente.refeicoesPorDia || 4}</strong></div>
-                      <div className="info-kv"><span className="kv-k">Rotina Sono:</span><span className="kv-v">{paciente.horarioAcorda || '07:00'} às {paciente.horarioDorme || '23:00'}</span></div>
-                      <div className="info-kv"><span className="kv-k">Ingestão Hídrica:</span><span className="kv-v">{paciente.aguaPorDia || 2} Litros/dia</span></div>
-                      <div className="info-kv"><span className="kv-k">Atividade Física:</span><span className="kv-v">{paciente.praticaAtividadeFisica ? 'Sim • ' + (paciente.atividadeFisicaDetalhes || 'Regular') : 'Sedentário'}</span></div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </form>
             </div>
           )}
 
