@@ -11,6 +11,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('login'); // 'login' | 'register' | 'dashboard'
   const [initializing, setInitializing] = useState(true);
+  const [registerRole, setRegisterRole] = useState('nutricionista');
   
   // Tema padrão 'dark' com suporte a persistência
   const [theme, setTheme] = useState(() => {
@@ -37,12 +38,17 @@ export default function App() {
 
   // Verifica se há sessão ativa ao inicializar o aplicativo
   useEffect(() => {
-    const session = getCurrentSession();
-    if (session?.user) {
-      setCurrentUser(session.user);
-      setView('dashboard');
+    try {
+      const session = getCurrentSession();
+      if (session?.user) {
+        setCurrentUser(session.user);
+        setView('dashboard');
+      }
+    } catch (e) {
+      console.warn('Erro ao verificar sessão:', e);
+    } finally {
+      setInitializing(false);
     }
-    setInitializing(false);
   }, []);
 
   const handleLoginSuccess = (user) => {
@@ -63,13 +69,11 @@ export default function App() {
 
   if (initializing) {
     return (
-      <div className="auth-bg-wrapper">
-        <div className="spinner" style={{ width: '36px', height: '36px', borderColor: 'rgba(124, 58, 237, 0.2)', borderTopColor: 'var(--primary-purple)' }}></div>
+      <div className="auth-bg-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#090D16' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', borderColor: 'rgba(124, 58, 237, 0.2)', borderTopColor: '#7C3AED' }}></div>
       </div>
     );
   }
-
-  const [registerRole, setRegisterRole] = useState('nutricionista');
 
   return (
     <>
@@ -91,7 +95,7 @@ export default function App() {
       ) : (
         <Login
           onSwitchToRegister={(role = 'nutricionista') => {
-            setRegisterRole(role);
+            setRegisterRole(typeof role === 'string' ? role : 'nutricionista');
             setView('register');
           }}
           onLoginSuccess={handleLoginSuccess}
@@ -105,4 +109,3 @@ export default function App() {
     </>
   );
 }
-
