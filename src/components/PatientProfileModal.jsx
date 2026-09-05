@@ -70,6 +70,7 @@ import {
   removerPlanoAlimentar,
   registrarConsultaCompleta
 } from '../services/dashboardService';
+import PlanoAlimentarModal from './PlanoAlimentarModal';
 
 export default function PatientProfileModal({
   paciente,
@@ -1453,15 +1454,26 @@ export default function PatientProfileModal({
                     <UtensilsCrossed size={18} className="icon-green" /> Planos Alimentares Prescritos
                   </h3>
                   <p className="planos-tab-subtitle">
-                    Histórico de condutas dietéticas e prescrições alimentares de {paciente.nome}.
+                    Histórico de condutas dietéticas, cardápios semanais e prescrições de {paciente.nome}.
                   </p>
                 </div>
                 <button
                   type="button"
                   className="btn-primary btn-generate-plan"
-                  onClick={() => setShowGerarPlanoModal(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #7C3AED 0%, #6366F1 100%)',
+                    boxShadow: '0 6px 18px rgba(124, 58, 237, 0.35)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onClick={() => {
+                    setSelectedPlano(null);
+                    setShowGerarPlanoModal(true);
+                  }}
                 >
-                  <Sparkles size={16} /> Gerar Plano Alimentar
+                  <Sparkles size={16} /> ✨ Gerar Plano com IA
                 </button>
               </div>
 
@@ -1475,7 +1487,16 @@ export default function PatientProfileModal({
                       <div key={plano.id} className="plano-card-item animated-fade-in" onClick={() => setSelectedPlano(plano)}>
                         <div className="plano-card-header">
                           <div className="plano-badge-title-wrap">
-                            <span className="plano-tag-badge">Prescrição Nutricional</span>
+                            <span
+                              className="plano-tag-badge"
+                              style={{
+                                backgroundColor: plano.tipo === 'IA' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(16, 185, 129, 0.15)',
+                                color: plano.tipo === 'IA' ? '#C4B5FD' : '#6EE7B7',
+                                border: `1px solid ${plano.tipo === 'IA' ? 'rgba(124, 58, 237, 0.35)' : 'rgba(16, 185, 129, 0.3)'}`
+                              }}
+                            >
+                              {plano.tipo === 'IA' ? '✨ IA Gemini' : '✍️ Prescrição Nutricional'}
+                            </span>
                             <h4 className="plano-title">{plano.titulo}</h4>
                           </div>
                           <span className="plano-date-pill">
@@ -1533,14 +1554,22 @@ export default function PatientProfileModal({
                 <div className="empty-planos-card">
                   <UtensilsCrossed size={40} className="empty-icon-green" />
                   <h4>Nenhum plano alimentar gerado ainda</h4>
-                  <p>Clique no botão <strong>"Gerar Plano Alimentar"</strong> acima para prescrever a dieta e as metas calóricas deste paciente.</p>
+                  <p>Clique no botão <strong>"✨ Gerar Plano com IA"</strong> acima para criar o cardápio personalizado com inteligência artificial.</p>
                   <button
                     type="button"
                     className="btn-primary"
-                    style={{ marginTop: '12px' }}
-                    onClick={() => setShowGerarPlanoModal(true)}
+                    style={{
+                      marginTop: '12px',
+                      background: 'linear-gradient(135deg, #7C3AED 0%, #6366F1 100%)',
+                      border: 'none',
+                      boxShadow: '0 6px 18px rgba(124, 58, 237, 0.3)'
+                    }}
+                    onClick={() => {
+                      setSelectedPlano(null);
+                      setShowGerarPlanoModal(true);
+                    }}
                   >
-                    <Sparkles size={16} /> Gerar Primeiro Plano Alimentar
+                    <Sparkles size={16} /> ✨ Gerar Primeiro Plano com IA
                   </button>
                 </div>
               )}
@@ -2583,206 +2612,27 @@ export default function PatientProfileModal({
     )
   }
 
-  {/* Modal de Visualização do Plano Alimentar Completo (Prompt 5) */ }
-  {
-    selectedPlano && (
-      <div className="file-preview-modal-backdrop" onClick={() => setSelectedPlano(null)}>
-        <div className="modal-card-sub plano-details-modal-card animated-scale-in" onClick={(e) => e.stopPropagation()}>
-          <div className="submodal-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UtensilsCrossed size={20} className="icon-green" />
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>{selectedPlano.titulo}</h3>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  Prescrição de {new Date(selectedPlano.dataGeracao || selectedPlano.created_at).toLocaleDateString('pt-BR')} • {paciente.nome}
-                </span>
-              </div>
-            </div>
-            <button type="button" className="btn-modal-close" onClick={() => setSelectedPlano(null)}>
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="plano-details-body">
-            {/* Banner de Calorias & Macros */}
-            <div className="plano-vet-ribbon">
-              <div className="vet-item">
-                <span className="vet-lbl">Meta Calórica Diária</span>
-                <strong className="vet-num">{selectedPlano.caloriasTotais} kcal</strong>
-              </div>
-              {selectedPlano.macros && (
-                <div className="vet-macros">
-                  <span className="macro-tag tag-p">Proteína: {selectedPlano.macros.proteina}</span>
-                  <span className="macro-tag tag-g">Gordura: {selectedPlano.macros.gordura}</span>
-                  <span className="macro-tag tag-c">Carboidrato: {selectedPlano.macros.carboidrato}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Lista de Refeições */}
-            <h4 style={{ margin: '14px 0 8px 0', fontSize: '0.92rem', fontWeight: 800 }}>
-              <Coffee size={16} className="icon-orange" /> Refeições e Horários Sugeridos
-            </h4>
-
-            <div className="refeicoes-timeline">
-              {Array.isArray(selectedPlano.refeicoes) && selectedPlano.refeicoes.length > 0 ? (
-                selectedPlano.refeicoes.map((ref, idx) => (
-                  <div key={idx} className="refeicao-item-card">
-                    <div className="refeicao-item-time">
-                      <Clock size={13} />
-                      <span>{ref.horario || 'Horário flexível'}</span>
-                    </div>
-                    <div className="refeicao-item-content">
-                      <h5 className="refeicao-name">{ref.nome}</h5>
-                      <p className="refeicao-desc">{ref.alimentos}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty-refeicoes-box">
-                  <p>Cardápio individualizado calculado com base na meta de {selectedPlano.caloriasTotais} kcal.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Orientações Gerais */}
-            {selectedPlano.orientacoesGerais && (
-              <div className="plano-orientacoes-box">
-                <h5 style={{ margin: '0 0 4px 0', fontSize: '0.85rem', fontWeight: 700 }}>💡 Orientações Clínicas Gerais</h5>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedPlano.orientacoesGerais}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="submodal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-            <button type="button" className="btn-secondary" onClick={() => setSelectedPlano(null)}>
-              Fechar
-            </button>
-            {paciente?.telefone && (
-              <a
-                href={`https://wa.me/55${cleanPhone(paciente.telefone)}?text=${encodeURIComponent(`Olá, ${firstName(paciente.nome)}! 🥗 Segue o seu plano alimentar prescrito:\n\n📋 *${selectedPlano.titulo}*\n⚡ *Meta:* ${selectedPlano.caloriasTotais} kcal/dia\n\n${(selectedPlano.refeicoes || []).map(r => `🍽️ *${r.nome}* (${r.horario}):\n${r.alimentos}`).join('\n\n')}\n\n💡 *Orientações:* ${selectedPlano.orientacoesGerais || 'Hidratação constante!'}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary"
-                style={{ background: '#10B981', borderColor: '#10B981' }}
-              >
-                <MessageCircle size={16} /> Enviar no WhatsApp do Paciente
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  {/* Modal de Gerar Novo Plano Alimentar (Prompt 5) */ }
-  {
-    showGerarPlanoModal && (
-      <div className="file-preview-modal-backdrop" onClick={() => setShowGerarPlanoModal(false)}>
-        <div className="modal-card-sub popup-form-card animated-scale-in" onClick={(e) => e.stopPropagation()}>
-          <div className="submodal-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={20} className="icon-green" />
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Gerar Plano Alimentar</h3>
-            </div>
-            <button type="button" className="btn-modal-close" onClick={() => setShowGerarPlanoModal(false)}>
-              <X size={18} />
-            </button>
-          </div>
-
-          <form onSubmit={handleSalvarNovoPlano} className="submodal-form">
-            <div className="plan-ai-notice-box">
-              <Sparkles size={18} className="icon-green" />
-              <div>
-                <h5 style={{ margin: '0 0 2px 0', fontSize: '0.85rem', fontWeight: 800 }}>Módulo de Geração Inteligente</h5>
-                <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                  Personalize os parâmetros nutricionais abaixo para salvar este plano no prontuário de {paciente.nome}.
-                </p>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Título do Plano Alimentar *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ex: Plano de Déficit Calórico & Saciedade"
-                value={novoPlanoTitulo}
-                onChange={(e) => setNovoPlanoTitulo(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-row grid-2">
-              <div className="form-group">
-                <label className="form-label">Calorias Totais (VET kcal/dia) *</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={novoPlanoCalorias}
-                  onChange={(e) => setNovoPlanoCalorias(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Meta de Proteínas</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: 130g (28%)"
-                  value={novoPlanoProt}
-                  onChange={(e) => setNovoPlanoProt(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="form-row grid-2">
-              <div className="form-group">
-                <label className="form-label">Meta de Gorduras</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: 50g (25%)"
-                  value={novoPlanoGord}
-                  onChange={(e) => setNovoPlanoGord(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Meta de Carboidratos</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: 195g (47%)"
-                  value={novoPlanoCarb}
-                  onChange={(e) => setNovoPlanoCarb(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Orientações Nutricionais Gerais</label>
-              <textarea
-                className="form-input"
-                rows={2}
-                placeholder="Ex: Ingerir no mínimo 2.5L de água por dia. Priorizar vegetais e proteínas magras."
-                value={novoPlanoObs}
-                onChange={(e) => setNovoPlanoObs(e.target.value)}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-              <button type="button" className="btn-secondary" onClick={() => setShowGerarPlanoModal(false)}>
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary" disabled={submitting}>
-                <CheckCircle size={16} /> Salvar Plano Alimentar
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )
-  }
+  {/* Modal de Geração, Edição e Visualização Completa de Plano Alimentar com IA (Prompt 6) */}
+  {(showGerarPlanoModal || !!selectedPlano) && (
+    <PlanoAlimentarModal
+      isOpen={showGerarPlanoModal || !!selectedPlano}
+      onClose={() => {
+        setShowGerarPlanoModal(false);
+        setSelectedPlano(null);
+      }}
+      paciente={paciente}
+      planoParaVisualizar={selectedPlano}
+      onSalvarPlano={async (dadosPlano) => {
+        const { novoPlano } = await salvarPlanoAlimentar(paciente.id, dadosPlano, nutricionistaId);
+        setPlanosList(prev => [novoPlano, ...prev.filter(p => p.id !== novoPlano.id)]);
+        setSuccessMsg('Plano alimentar salvo no histórico com sucesso!');
+        setShowGerarPlanoModal(false);
+        setSelectedPlano(null);
+        if (onActionSuccess) onActionSuccess();
+        setTimeout(() => setSuccessMsg(''), 2500);
+      }}
+    />
+  )}
 
   {/* Modal de Pré-Visualização de Anexo (Imagem ou PDF/Doc) */ }
   {
