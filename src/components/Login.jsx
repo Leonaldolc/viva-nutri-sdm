@@ -265,16 +265,57 @@ export default function Login({ onSwitchToRegister, onLoginSuccess, theme, onTog
             </button>
           </form>
 
-          {/* Rodapé com link para cadastro */}
-          <footer className="auth-footer">
-            <span>Não tem conta?</span>
+          {/* Banner de Pré-Cadastro para Pacientes */}
+          <div
+            style={{
+              marginTop: '20px',
+              padding: '12px 14px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
+            }}
+          >
+            <div>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#34D399', display: 'block' }}>
+                É um novo paciente?
+              </span>
+              <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>
+                Preencha sua ficha e anamnese inicial online
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSwitchToRegister('paciente')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                color: '#34D399',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Cadastre-se aqui
+            </button>
+          </div>
+
+          {/* Rodapé com link para cadastro de profissional */}
+          <footer className="auth-footer" style={{ marginTop: '16px' }}>
+            <span>Nutricionista sem conta?</span>
             <button 
               id="btn-switch-register"
               type="button" 
               className="auth-link" 
-              onClick={onSwitchToRegister}
+              onClick={() => onSwitchToRegister('nutricionista')}
             >
-              Cadastre-se
+              Cadastre seu consultório
             </button>
           </footer>
         </div>

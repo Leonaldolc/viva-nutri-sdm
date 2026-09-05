@@ -69,6 +69,8 @@ export default function App() {
     );
   }
 
+  const [registerRole, setRegisterRole] = useState('nutricionista');
+
   return (
     <>
       {currentUser || view === 'dashboard' ? (
@@ -80,6 +82,7 @@ export default function App() {
         />
       ) : view === 'register' ? (
         <Register
+          initialAccountType={registerRole}
           onSwitchToLogin={() => setView('login')}
           onRegisterSuccess={handleRegisterSuccess}
           theme={theme}
@@ -87,7 +90,10 @@ export default function App() {
         />
       ) : (
         <Login
-          onSwitchToRegister={() => setView('register')}
+          onSwitchToRegister={(role = 'nutricionista') => {
+            setRegisterRole(role);
+            setView('register');
+          }}
           onLoginSuccess={handleLoginSuccess}
           theme={theme}
           onToggleTheme={toggleTheme}
