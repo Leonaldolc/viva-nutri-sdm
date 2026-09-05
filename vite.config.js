@@ -2,54 +2,72 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import apiGerarPlanoHandler from './api/gerar-plano.js'
+import apiPacientesHandler from './api/pacientes.js'
+import apiConsultasHandler from './api/consultas.js'
 
-// Plugin local para rodar a Serverless Function /api/gerar-plano em modo dev
+/**
+ * Mapeia rotas de API para seus handlers serverless
+ */
+const API_ROUTES = {
+  '/api/gerar-plano': apiGerarPlanoHandler,
+  '/api/pacientes': apiPacientesHandler,
+  '/api/consultas': apiConsultasHandler,
+};
+
+// Plugin local para rodar Serverless Functions em modo dev
 function devApiPlugin() {
   return {
-    name: 'vite-dev-api-gerar-plano',
+    name: 'vite-dev-api-routes',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (req.url && req.url.startsWith('/api/gerar-plano')) {
-          const env = loadEnv(server.config.mode, process.cwd(), '');
-          process.env.GOOGLE_API_KEY = env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
-          process.env.GEMINI_API_KEY = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-
-          // Ler body da requisição
-          let bodyData = '';
-          req.on('data', chunk => {
-            bodyData += chunk;
-          });
-
-          req.on('end', async () => {
-            try {
-              req.body = bodyData ? JSON.parse(bodyData) : {};
-            } catch {
-              req.body = {};
-            }
-
-            // Adaptador para compatibilidade com o handler Express/Vercel
-            res.status = function (code) {
-              res.statusCode = code;
-              return res;
-            };
-            res.json = function (obj) {
-              res.setHeader('Content-Type', 'application/json; charset=utf-8');
-              res.end(JSON.stringify(obj));
-              return res;
-            };
-
-            try {
-              await apiGerarPlanoHandler(req, res);
-            } catch (err) {
-              console.error('Erro no handler da API dev:', err);
-              res.statusCode = 500;
-              res.setHeader('Content-Type', 'application/json; charset=utf-8');
-              res.end(JSON.stringify({ success: false, error: err.message }));
-            }
-          });
-          return;
+        // Determinar qual handler usar baseado na URL
+        const matchedRoute = Object.keys(API_ROUTES).find(route => req.url && req.url.startsWith(route));
+        
+        if (!matchedRoute) {
+          return next();
         }
-        next();
+
+        const handler = API_ROUTES[matchedRoute];
+        const env = loadEnv(server.config.mode, process.cwd(), '');
+        
+        // Injetar variáveis de ambiente
+        process.env.GOOGLE_API_KEY = env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
+        process.env.GEMINI_API_KEY = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+        process.env.DATABASE_URL = env.DATABASE_URL || process.env.DATABASE_URL;
+
+        // Ler body da requisição
+        let bodyData = '';
+        req.on('data', chunk => {
+          bodyData += chunk;
+        });
+
+        req.on('end', async () => {
+          try {
+            req.body = bodyData ? JSON.parse(bodyData) : {};
+          } catch {
+            req.body = {};
+          }
+
+          // Adaptador para compatibilidade com o handler Express/Vercel
+          res.status = function (code) {
+            res.statusCode = code;
+            return res;
+          };
+          res.json = function (obj) {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify(obj));
+            return res;
+          };
+
+          try {
+            await handler(req, res);
+          } catch (err) {
+            console.error(`Erro no handler da API dev (${matchedRoute}):`, err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, error: err.message }));
+          }
+        });
       });
     }
   };

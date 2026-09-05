@@ -1,10 +1,105 @@
 // Serviço de Dados e Business Intelligence do Dashboard VIVA NUTRI
-// Cálculos Analíticos, Métricas de Retenção, Churn, Séries Temporais e RLS
+// Agora com integração Neon PostgreSQL via API serverless + cache localStorage
 
 const STORAGE_KEY_PACIENTES = 'viva_nutri_pacientes_db';
 const STORAGE_KEY_CONSULTAS = 'viva_nutri_consultas_db';
 
-// Base analítica inicial de pacientes com dados clínicos profundos
+// ============================================================================
+// CAMADA DE API — Comunicação com o backend Neon PostgreSQL
+// ============================================================================
+
+/**
+ * Chama uma API route do backend com fallback para localStorage
+ */
+async function apiCall(endpoint, method = 'GET', body = null) {
+  try {
+    const options = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (body && method !== 'GET') {
+      options.body = JSON.stringify(body);
+    }
+    const response = await fetch(endpoint, options);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || `Erro HTTP ${response.status}`);
+    }
+    return data;
+  } catch (err) {
+    console.warn(`[API] Falha em ${method} ${endpoint}:`, err.message);
+    return null; // Fallback para localStorage
+  }
+}
+
+// ============================================================================
+// BASE DE DADOS COM API + CACHE LOCAL
+// ============================================================================
+
+/**
+ * Carrega pacientes do banco (API) com fallback para cache local
+ */
+async function loadPacientesFromApi(nutricionistaId) {
+  const result = await apiCall(`/api/pacientes?nutricionista_id=${nutricionistaId}`);
+  if (result && result.success && Array.isArray(result.pacientes)) {
+    // Atualizar cache local
+    localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(result.pacientes));
+    return result.pacientes;
+  }
+  // Fallback: ler do cache local
+  return loadPacientesFromCache(nutricionistaId);
+}
+
+/**
+ * Carrega consultas do banco (API) com fallback para cache local
+ */
+async function loadConsultasFromApi(nutricionistaId) {
+  const result = await apiCall(`/api/consultas?nutricionista_id=${nutricionistaId}`);
+  if (result && result.success && Array.isArray(result.consultas)) {
+    localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(result.consultas));
+    return result.consultas;
+  }
+  return loadConsultasFromCache(nutricionistaId);
+}
+
+/**
+ * Carrega pacientes do cache localStorage (fallback)
+ */
+function loadPacientesFromCache(nutricionistaId) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PACIENTES);
+    if (raw) {
+      const pacientes = JSON.parse(raw);
+      if (Array.isArray(pacientes)) {
+        return pacientes.filter(p => p.nutricionista_id === nutricionistaId || !p.nutricionista_id);
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao ler pacientes do cache:', err);
+  }
+  return getInitialPatients(nutricionistaId);
+}
+
+/**
+ * Carrega consultas do cache localStorage (fallback)
+ */
+function loadConsultasFromCache(nutricionistaId) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CONSULTAS);
+    if (raw) {
+      const consultas = JSON.parse(raw);
+      if (Array.isArray(consultas)) {
+        return consultas.filter(c => c.nutricionista_id === nutricionistaId || !c.nutricionista_id);
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao ler consultas do cache:', err);
+  }
+  return getInitialAppointments(nutricionistaId);
+}
+
+
+// Base analítica inicial de pacientes com dados clínicos profundos (mock/demo)
 function getInitialPatients(nutricionistaId) {
   const now = new Date();
   const daysAgo = (days) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -16,7 +111,7 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Mariana Silveira',
       email: 'mariana.silveira@email.com',
       telefone: '(11) 98765-4321',
-      dataNascimento: '1996-08-29', // Aniversário Hoje!
+      dataNascimento: '1996-08-29',
       idade: 30,
       sexo: 'Feminino',
       objetivo: 'Emagrecimento',
@@ -47,7 +142,7 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Carlos Eduardo Mendes',
       email: 'carlos.mendes@email.com',
       telefone: '(11) 97123-8899',
-      dataNascimento: '1985-08-31', // Aniversário em 2 dias!
+      dataNascimento: '1985-08-31',
       idade: 41,
       sexo: 'Masculino',
       objetivo: 'Controle de Diabetes Tipo 2',
@@ -79,7 +174,7 @@ function getInitialPatients(nutricionistaId) {
       nome: 'Beatriz Almeida',
       email: 'beatriz.almeida@email.com',
       telefone: '(21) 99456-1122',
-      dataNascimento: '1999-09-02', // Aniversário em 4 dias!
+      dataNascimento: '1999-09-02',
       idade: 27,
       sexo: 'Feminino',
       objetivo: 'Reeducação Alimentar',
@@ -285,7 +380,7 @@ function getInitialAppointments(nutricionistaId) {
   };
 
   return [
-    // Consultas de HOJE (para organização imediata da nutricionista)
+    // Consultas de HOJE
     {
       id: 'cons_today_1',
       nutricionista_id: nutricionistaId,
@@ -340,7 +435,7 @@ function getInitialAppointments(nutricionistaId) {
       linkTeleconsulta: 'https://meet.google.com/viva-nutri-tele',
       tipo: 'Revisão Calórica & Treino'
     },
-    // Consultas nos dias anteriores e posteriores do MÊS ATUAL
+    // Consultas anteriores e futuras
     {
       id: 'cons_m_1',
       nutricionista_id: nutricionistaId,
@@ -439,8 +534,7 @@ function getInitialAppointments(nutricionistaId) {
 }
 
 
-
-
+// Função síncrona de compatibilidade para código que usa loadDatabase diretamente
 function loadDatabase(nutricionistaId) {
   try {
     let pacientes = JSON.parse(localStorage.getItem(STORAGE_KEY_PACIENTES) || 'null');
@@ -452,7 +546,6 @@ function loadDatabase(nutricionistaId) {
       pacientes = initialMock;
       localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(pacientes));
     } else {
-      // Enriquecer pacientes que não tenham data de nascimento
       let modified = false;
       pacientes = pacientes.map((p, idx) => {
         if (!p.dataNascimento) {
@@ -466,7 +559,6 @@ function loadDatabase(nutricionistaId) {
         }
         return p;
       });
-
       if (modified) {
         localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(pacientes));
       }
@@ -476,7 +568,6 @@ function loadDatabase(nutricionistaId) {
       consultas = getInitialAppointments(nutricionistaId);
       localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(consultas));
     } else {
-      // Sanitizar consultas duplicadas e enriquecer modalidade / confirmação
       const occupiedTimes = new Set();
       let consultasModified = false;
       consultas = consultas.map(c => {
@@ -512,8 +603,6 @@ function loadDatabase(nutricionistaId) {
       }
     }
 
-
-
     return {
       pacientes: pacientes.filter(p => p.nutricionista_id === nutricionistaId || !p.nutricionista_id),
       consultas: consultas.filter(c => c.nutricionista_id === nutricionistaId || !c.nutricionista_id)
@@ -547,8 +636,8 @@ export function subscribeDashboardUpdates(callback) {
  */
 export function getAniversariantesInfo(pacientes = []) {
   const today = new Date();
-  const currentMonth = today.getMonth() + 1; // 1-12
-  const currentDay = today.getDate(); // 1-31
+  const currentMonth = today.getMonth() + 1;
+  const currentDay = today.getDate();
 
   const list = [];
 
@@ -563,7 +652,6 @@ export function getAniversariantesInfo(pacientes = []) {
 
     if (isNaN(birthMonth) || isNaN(birthDay)) return;
 
-    // Calcular dias até o aniversário no ano atual ou próximo
     let nextBday = new Date(today.getFullYear(), birthMonth - 1, birthDay);
     const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -578,7 +666,6 @@ export function getAniversariantesInfo(pacientes = []) {
     const isThisWeek = diffDays >= 0 && diffDays <= 7;
     const isThisMonth = (birthMonth === currentMonth);
 
-    // Idade que está completando
     const idadeNova = today.getFullYear() - birthYear + (nextBday.getFullYear() > today.getFullYear() ? 1 : 0);
 
     if (isThisMonth || isThisWeek || isToday) {
@@ -595,7 +682,6 @@ export function getAniversariantesInfo(pacientes = []) {
     }
   });
 
-  // Ordenar pelos aniversários mais próximos
   list.sort((a, b) => a.diffDays - b.diffDays);
 
   const aniversariantesHoje = list.filter(item => item.isToday);
@@ -614,18 +700,31 @@ export function getAniversariantesInfo(pacientes = []) {
 
 /**
  * Motor Analítico e BI do VIVA NUTRI
+ * Agora carrega dados da API (Neon) com fallback para localStorage
  */
 export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
-  await new Promise(resolve => setTimeout(resolve, 250));
+  // Tentar carregar da API primeiro, fallback para cache local
+  let pacientes, consultas;
+  try {
+    const [pacResult, consResult] = await Promise.allSettled([
+      loadPacientesFromApi(nutricionistaId),
+      loadConsultasFromApi(nutricionistaId)
+    ]);
+    pacientes = pacResult.status === 'fulfilled' ? pacResult.value : loadPacientesFromCache(nutricionistaId);
+    consultas = consResult.status === 'fulfilled' ? consResult.value : loadConsultasFromCache(nutricionistaId);
+  } catch {
+    const db = loadDatabase(nutricionistaId);
+    pacientes = db.pacientes;
+    consultas = db.consultas;
+  }
 
-  const { pacientes, consultas } = loadDatabase(nutricionistaId);
   const now = new Date();
 
   // 1. Total e Classificação de Pacientes
   const totalPacientes = pacientes.filter(p => p.status === 'ativo').length;
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // 2. Consultas da Semana Vigente (Segunda a Domingo)
+  // 2. Consultas da Semana Vigente
   const currentDayOfWeek = now.getDay();
   const distanceToMonday = (currentDayOfWeek + 6) % 7;
   
@@ -644,7 +743,7 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
 
   const consultasSemana = consultasSemanaLista.length;
 
-  // 2.1 Consultas de HOJE (Para planejamento do dia)
+  // 2.1 Consultas de HOJE
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
@@ -656,7 +755,6 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
   const consultasHojeCount = consultasHojeLista.length;
   const proximaConsultaHoje = consultasHojeLista.find(c => new Date(c.data_consulta) >= now && c.status !== 'realizada') || consultasHojeLista[0] || null;
 
-
   // 3. Matriz de Risco e Pacientes Sem Retorno
   const futureAppointments = consultas.filter(c => {
     const dataC = new Date(c.data_consulta);
@@ -664,7 +762,6 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
   });
   const futurePatientIds = new Set(futureAppointments.map(c => c.paciente_id));
 
-  // Todos os pacientes enriquecidos com métricas analíticas de risco
   const pacientesAnaliticos = pacientes.map(p => {
     const lastDate = p.ultima_consulta ? new Date(p.ultima_consulta) : null;
     const diasSemConsulta = lastDate 
@@ -673,8 +770,8 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
 
     const hasFuture = futurePatientIds.has(p.id);
 
-    let riskLevel = 'baixo'; // 'critico' | 'medio' | 'baixo'
-    let scoreRisco = 15; // 0 - 100
+    let riskLevel = 'baixo';
+    let scoreRisco = 15;
 
     if (!hasFuture && diasSemConsulta >= 45) {
       riskLevel = 'critico';
@@ -696,7 +793,6 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
     };
   });
 
-  // Filtro estrito do Card 3: >30 dias sem consulta e sem agendamento futuro
   const pacientesSemRetorno = pacientesAnaliticos
     .filter(p => !p.hasFuture && p.diasSemConsulta >= 30)
     .sort((a, b) => b.scoreRisco - a.scoreRisco);
@@ -705,16 +801,16 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
   const criticosCount = pacientesSemRetorno.filter(p => p.riskLevel === 'critico').length;
   const mediosCount = pacientesSemRetorno.filter(p => p.riskLevel === 'medio').length;
 
-  // 4. Métricas Globais de BI (Business Intelligence)
+  // 4. Métricas Globais de BI
   const retentionRate = totalPacientes > 0 
     ? Math.round(((totalPacientes - totalSemRetorno) / totalPacientes) * 100 * 10) / 10
     : 100;
 
-  const occupancyRate = 78.5; // Taxa de ocupação da agenda semanal
-  const avgCycleDays = 27; // Ciclo médio de dias entre retornos
-  const churnRate = 4.2; // Taxa de evasão
+  const occupancyRate = 78.5;
+  const avgCycleDays = 27;
+  const churnRate = 4.2;
 
-  // 5. Distribuição por Objetivo Clínico (Donut Chart Analytics)
+  // 5. Distribuição por Objetivo Clínico
   const categoryCount = {};
   pacientes.forEach(p => {
     const cat = p.categoria || p.objetivo || 'Geral';
@@ -738,7 +834,7 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
     color: colorPalette[name] || '#8B5CF6'
   })).sort((a, b) => b.count - a.count);
 
-  // 6. Série Temporal Histórica de Consultas (Area Chart)
+  // 6. Série Temporal Histórica
   const monthlyTrends = [
     { label: 'Mar', atendimentos: 34, meta: 30, retencao: 82 },
     { label: 'Abr', atendimentos: 42, meta: 35, retencao: 85 },
@@ -748,7 +844,7 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
     { label: 'Ago', atendimentos: 58, meta: 50, retencao: 91 }
   ];
 
-  // 7. Ocupação da Semana Atual por Dia (Seg a Sex)
+  // 7. Ocupação da Semana
   const weekdayOccupancy = [
     { day: 'Seg', count: 1, capacity: 4, label: 'Segunda' },
     { day: 'Ter', count: 1, capacity: 4, label: 'Terça' },
@@ -783,26 +879,38 @@ export async function getDashboardMetrics(nutricionistaId, timeframe = '30d') {
 }
 
 /**
- * Atualiza o status de uma consulta (ex: 'confirmada', 'realizada', 'em_atendimento', 'cancelada')
+ * Atualiza o status de uma consulta
  */
 export async function atualizarStatusConsulta(consultaId, novoStatus, nutricionistaId) {
-  const { consultas } = loadDatabase(nutricionistaId);
-  const updated = consultas.map(c => {
-    if (c.id === consultaId) {
-      return { ...c, status: novoStatus };
-    }
-    return c;
+  // Tentar via API
+  const result = await apiCall('/api/consultas', 'PUT', {
+    consultaId,
+    dadosAtualizados: { status: novoStatus },
+    nutricionistaId
   });
+
+  if (result && result.success) {
+    // Atualizar cache local
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_CONSULTAS) || '[]');
+    const updated = cached.map(c => c.id === consultaId ? { ...c, status: novoStatus } : c);
+    localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
+    notifyDatabaseChange();
+    return result.consulta;
+  }
+
+  // Fallback localStorage
+  const { consultas } = loadDatabase(nutricionistaId);
+  const updated = consultas.map(c => c.id === consultaId ? { ...c, status: novoStatus } : c);
   localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
   notifyDatabaseChange();
   return updated.find(c => c.id === consultaId);
 }
 
 /**
- * Retorna todas as consultas registradas para a nutricionista
+ * Retorna todas as consultas registradas
  */
 export async function getTodasConsultas(nutricionistaId) {
-  const { consultas } = loadDatabase(nutricionistaId);
+  const consultas = await loadConsultasFromApi(nutricionistaId);
   return [...consultas].sort((a, b) => new Date(a.data_consulta) - new Date(b.data_consulta));
 }
 
@@ -810,31 +918,49 @@ export async function getTodasConsultas(nutricionistaId) {
  * Remove ou desmarca uma consulta
  */
 export async function desmarcarConsulta(consultaId, nutricionistaId) {
-  const { consultas } = loadDatabase(nutricionistaId);
-  const updated = consultas.filter(c => c.id !== consultaId);
+  const result = await apiCall('/api/consultas', 'DELETE', { consultaId, nutricionistaId });
+
+  // Atualizar cache local independentemente
+  const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_CONSULTAS) || '[]');
+  const updated = cached.filter(c => c.id !== consultaId);
   localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
   notifyDatabaseChange();
   return true;
 }
 
 
-
-
 export async function getPacientes(nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
-  return pacientes;
+  return await loadPacientesFromApi(nutricionistaId);
 }
 
 export async function getPacienteById(pacienteId, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
+  // Tentar API
+  const result = await apiCall(`/api/pacientes?id=${pacienteId}`);
+  if (result && result.success && result.paciente) {
+    return result.paciente;
+  }
+  // Fallback cache
+  const pacientes = loadPacientesFromCache(nutricionistaId);
   return pacientes.find(p => p.id === pacienteId) || null;
 }
 
 export async function cadastrarPaciente(pacienteData, nutricionistaId) {
+  // Tentar via API (salva no Neon)
+  const result = await apiCall('/api/pacientes', 'POST', { pacienteData, nutricionistaId });
+
+  if (result && result.success && result.paciente) {
+    // Atualizar cache local
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_PACIENTES) || '[]');
+    localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify([result.paciente, ...cached]));
+    notifyDatabaseChange();
+    return result.paciente;
+  }
+
+  // Fallback: salvar apenas no localStorage
+  console.warn('[VIVA NUTRI] API indisponível, salvando paciente apenas no cache local.');
   const { pacientes } = loadDatabase(nutricionistaId);
   const now = new Date().toISOString();
-  
-  // Formatador de objetivo principal
+
   const objetivosList = Array.isArray(pacienteData.objetivos) && pacienteData.objetivos.length > 0
     ? pacienteData.objetivos
     : (pacienteData.objetivo ? [pacienteData.objetivo] : ['Saúde geral']);
@@ -855,8 +981,6 @@ export async function cadastrarPaciente(pacienteData, nutricionistaId) {
   const novoPaciente = {
     id: `pac_${Date.now()}`,
     nutricionista_id: nutricionistaId,
-    
-    // Aba 1 - Pessoal
     nome: pacienteData.nome.trim(),
     dataNascimento: pacienteData.dataNascimento || '',
     idade: pacienteData.idade || null,
@@ -864,12 +988,10 @@ export async function cadastrarPaciente(pacienteData, nutricionistaId) {
     telefone: pacienteData.telefone?.trim() || '',
     whatsapp: pacienteData.whatsapp?.trim() || pacienteData.telefone?.trim() || '',
     email: pacienteData.email?.trim() || '',
-
-    // Aba 2 - Clínico
     pesoAtual: pesoNum || 70,
     pesoInicial: pesoNum || 70,
     altura: alturaNum || 170,
-    imc: imcCalculado || (pacienteData.imc ? Number(pacienteData.imc) : null),
+    imc: imcCalculado,
     objetivos: objetivosList,
     objetivoDetalhes: pacienteData.objetivoDetalhes || '',
     objetivo: objetivoPrincipal,
@@ -880,8 +1002,6 @@ export async function cadastrarPaciente(pacienteData, nutricionistaId) {
     alergiasAlimentares: Array.isArray(pacienteData.alergiasAlimentares) ? pacienteData.alergiasAlimentares : [],
     medicamentosContinuos: pacienteData.medicamentosContinuos || '',
     suplementos: pacienteData.suplementos || '',
-
-    // Aba 3 - Hábitos
     refeicoesPorDia: pacienteData.refeicoesPorDia ? Number(pacienteData.refeicoesPorDia) : 4,
     horarioAcorda: pacienteData.horarioAcorda || '07:00',
     horarioDorme: pacienteData.horarioDorme || '23:00',
@@ -889,8 +1009,6 @@ export async function cadastrarPaciente(pacienteData, nutricionistaId) {
     praticaAtividadeFisica: Boolean(pacienteData.praticaAtividadeFisica),
     atividadeFisicaDetalhes: pacienteData.atividadeFisicaDetalhes || '',
     observacoesGerais: pacienteData.observacoesGerais || '',
-
-    // Métricas analíticas e histórico inicial
     status: 'ativo',
     adesaoPlano: 85,
     consultasTotais: 1,
@@ -900,17 +1018,15 @@ export async function cadastrarPaciente(pacienteData, nutricionistaId) {
     massaMagraInicial: 30,
     cinturaAtual: 82,
     cinturaInicial: 82,
-    historicoEvolucao: [
-      {
-        data: now,
-        peso: pesoNum || 70,
-        gordura: 24,
-        massaMagra: 30,
-        cintura: 82,
-        adesao: 85,
-        notas: 'Primeira consulta e cadastro do paciente'
-      }
-    ],
+    historicoEvolucao: [{
+      data: now,
+      peso: pesoNum || 70,
+      gordura: 24,
+      massaMagra: 30,
+      cintura: 82,
+      adesao: 85,
+      notas: 'Primeira consulta e cadastro do paciente'
+    }],
     ultima_consulta: now,
     created_at: now
   };
@@ -922,12 +1038,24 @@ export async function cadastrarPaciente(pacienteData, nutricionistaId) {
 }
 
 export async function atualizarPaciente(pacienteId, dadosAtualizados, nutricionistaId) {
+  // Tentar via API
+  const result = await apiCall('/api/pacientes', 'PUT', { pacienteId, dadosAtualizados, nutricionistaId });
+
+  if (result && result.success && result.paciente) {
+    // Atualizar cache local
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_PACIENTES) || '[]');
+    const updated = cached.map(p => p.id === pacienteId ? { ...p, ...result.paciente } : p);
+    localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
+    notifyDatabaseChange();
+    return result.paciente;
+  }
+
+  // Fallback localStorage
   const { pacientes } = loadDatabase(nutricionistaId);
 
   const updated = pacientes.map(p => {
     if (p.id !== pacienteId) return p;
 
-    // Recalcular IMC se peso ou altura foram atualizados
     const pesoNum = dadosAtualizados.pesoAtual !== undefined ? Number(dadosAtualizados.pesoAtual) : p.pesoAtual;
     const alturaNum = dadosAtualizados.altura !== undefined ? Number(dadosAtualizados.altura) : p.altura;
     let imcCalculado = p.imc;
@@ -961,26 +1089,26 @@ export async function atualizarPaciente(pacienteId, dadosAtualizados, nutricioni
 }
 
 export async function excluirPaciente(pacienteId, nutricionistaId) {
-  const { pacientes, consultas } = loadDatabase(nutricionistaId);
+  // Tentar via API
+  await apiCall('/api/pacientes', 'DELETE', { pacienteId, nutricionistaId });
 
-  const updatedPacientes = pacientes.filter(p => p.id !== pacienteId);
-  const updatedConsultas = consultas.filter(c => c.paciente_id !== pacienteId);
-
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updatedPacientes));
-  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updatedConsultas));
+  // Atualizar cache local
+  const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_PACIENTES) || '[]');
+  const cachedConsultas = JSON.parse(localStorage.getItem(STORAGE_KEY_CONSULTAS) || '[]');
+  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(cached.filter(p => p.id !== pacienteId)));
+  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(cachedConsultas.filter(c => c.paciente_id !== pacienteId)));
   notifyDatabaseChange();
   return true;
 }
 
 /**
  * Verifica se já existe consulta agendada para a data/horário selecionados
- * (Janela de conflito de 40 minutos para evitar sobreposição)
  */
 export async function verificarConflitoHorario(dataConsultaIso, nutricionistaId, ignoreConsultaId = null) {
-  const { consultas } = loadDatabase(nutricionistaId);
+  const consultas = await loadConsultasFromApi(nutricionistaId);
   const targetDate = new Date(dataConsultaIso);
   const targetTime = targetDate.getTime();
-  const DURATION_MS = 40 * 60 * 1000; // 40 minutos
+  const DURATION_MS = 40 * 60 * 1000;
 
   const conflito = consultas.find(c => {
     if (ignoreConsultaId && c.id === ignoreConsultaId) return false;
@@ -988,8 +1116,6 @@ export async function verificarConflitoHorario(dataConsultaIso, nutricionistaId,
 
     const cDate = new Date(c.data_consulta);
     const cTime = cDate.getTime();
-
-    // Mesma data e horário ou sobreposição < 40 minutos
     const diffMs = Math.abs(targetTime - cTime);
     return diffMs < DURATION_MS;
   });
@@ -1007,20 +1133,44 @@ export async function agendarConsulta({
   confirmacao = 'pendente',
   forcarEncaixe = false 
 }, nutricionistaId) {
-  const { consultas } = loadDatabase(nutricionistaId);
+  // Tentar via API
+  const result = await apiCall('/api/consultas', 'POST', {
+    consultaData: {
+      pacienteId,
+      pacienteNome,
+      dataConsulta,
+      tipo,
+      modalidade,
+      linkTeleconsulta,
+      confirmacao,
+      forcarEncaixe
+    },
+    nutricionistaId
+  });
 
-  // 1. Validação de Conflito de Horário
-  const conflito = await verificarConflitoHorario(dataConsulta, nutricionistaId);
-  if (conflito && !forcarEncaixe) {
-    const dConf = new Date(conflito.data_consulta);
-    const horaConf = dConf.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const dataConf = dConf.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    const erro = new Error(`Horário Ocupado: O paciente "${conflito.paciente_nome}" já está agendado para ${dataConf} às ${horaConf}.`);
-    erro.isConflict = true;
-    erro.conflito = conflito;
-    throw erro;
+  if (result && result.success && result.consulta) {
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_CONSULTAS) || '[]');
+    localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify([result.consulta, ...cached]));
+    notifyDatabaseChange();
+    return result.consulta;
   }
 
+  // Verificação de conflito local
+  if (!forcarEncaixe) {
+    const conflito = await verificarConflitoHorario(dataConsulta, nutricionistaId);
+    if (conflito) {
+      const dConf = new Date(conflito.data_consulta);
+      const horaConf = dConf.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dataConf = dConf.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const erro = new Error(`Horário Ocupado: O paciente "${conflito.paciente_nome}" já está agendado para ${dataConf} às ${horaConf}.`);
+      erro.isConflict = true;
+      erro.conflito = conflito;
+      throw erro;
+    }
+  }
+
+  // Fallback localStorage
+  const { consultas } = loadDatabase(nutricionistaId);
   const novaConsulta = {
     id: `cons_${Date.now()}`,
     nutricionista_id: nutricionistaId,
@@ -1041,22 +1191,32 @@ export async function agendarConsulta({
 }
 
 /**
- * Retorna todas as consultas de um paciente específico (histórico e futuras)
+ * Retorna todas as consultas de um paciente específico
  */
 export async function getConsultasDoPaciente(pacienteId, nutricionistaId) {
-  const { consultas } = loadDatabase(nutricionistaId);
+  const consultas = await loadConsultasFromApi(nutricionistaId);
   return consultas
     .filter(c => c.paciente_id === pacienteId && c.status !== 'cancelada')
     .sort((a, b) => new Date(b.data_consulta) - new Date(a.data_consulta));
 }
 
 /**
- * Atualiza qualquer dado da consulta (horário, tipo, modalidade, teleconsulta, confirmação)
+ * Atualiza qualquer dado da consulta
  */
 export async function atualizarConsulta(consultaId, dadosAtualizados, nutricionistaId) {
+  const result = await apiCall('/api/consultas', 'PUT', { consultaId, dadosAtualizados, nutricionistaId });
+
+  if (result && result.success && result.consulta) {
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_CONSULTAS) || '[]');
+    const updated = cached.map(c => c.id === consultaId ? { ...c, ...result.consulta } : c);
+    localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
+    notifyDatabaseChange();
+    return result.consulta;
+  }
+
+  // Fallback
   const { consultas } = loadDatabase(nutricionistaId);
   
-  // Se estiver alterando a data/horário, verificar conflito (ignorando a consulta atual)
   if (dadosAtualizados.data_consulta) {
     const conflito = await verificarConflitoHorario(dadosAtualizados.data_consulta, nutricionistaId, consultaId);
     if (conflito && !dadosAtualizados.forcarEncaixe) {
@@ -1087,27 +1247,16 @@ export async function atualizarConsulta(consultaId, dadosAtualizados, nutricioni
 }
 
 /**
- * Alterna o status de confirmação da consulta (ex: 'pendente' <-> 'confirmado')
+ * Alterna o status de confirmação da consulta
  */
 export async function alternarConfirmacaoConsulta(consultaId, nutricionistaId) {
-  const { consultas } = loadDatabase(nutricionistaId);
-  const updated = consultas.map(c => {
-    if (c.id === consultaId) {
-      const proximo = c.confirmacao === 'confirmado' ? 'pendente' : 'confirmado';
-      return {
-        ...c,
-        confirmacao: proximo,
-        status: proximo === 'confirmado' ? 'confirmada' : c.status
-      };
-    }
-    return c;
-  });
-  localStorage.setItem(STORAGE_KEY_CONSULTAS, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return updated.find(c => c.id === consultaId);
+  const consultas = await loadConsultasFromApi(nutricionistaId);
+  const consulta = consultas.find(c => c.id === consultaId);
+  if (!consulta) return null;
+
+  const proximo = consulta.confirmacao === 'confirmado' ? 'pendente' : 'confirmado';
+  return atualizarConsulta(consultaId, { confirmacao: proximo }, nutricionistaId);
 }
-
-
 
 
 export async function agendarRetornoRapido(paciente, nutricionistaId) {
@@ -1116,7 +1265,6 @@ export async function agendarRetornoRapido(paciente, nutricionistaId) {
   nextDate.setDate(now.getDate() + 3);
   nextDate.setHours(14, 0, 0, 0);
 
-  // Se 14:00 estiver ocupado, procurar próximo horário livre
   let conflito = await verificarConflitoHorario(nextDate.toISOString(), nutricionistaId);
   if (conflito) {
     nextDate.setHours(15, 30, 0, 0);
@@ -1135,49 +1283,45 @@ export async function agendarRetornoRapido(paciente, nutricionistaId) {
  * Adiciona um novo registro de evolução clínica e bioimpedância ao paciente
  */
 export async function adicionarMedicaoEvolucao(pacienteId, medicao, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
   const now = new Date().toISOString();
+  const paciente = pacientes.find(p => p.id === pacienteId);
+  if (!paciente) return null;
 
-  const updated = pacientes.map(p => {
-    if (p.id !== pacienteId) return p;
+  const novoHistorico = [
+    ...(paciente.historicoEvolucao || []),
+    {
+      data: now,
+      peso: Number(medicao.peso),
+      gordura: Number(medicao.gordura || paciente.gorduraAtual || 20),
+      massaMagra: Number(medicao.massaMagra || paciente.massaMagraAtual || 30),
+      cintura: Number(medicao.cintura || paciente.cinturaAtual || 80),
+      adesao: Number(medicao.adesao || 90),
+      notas: medicao.notas || 'Nova avaliação de retorno registrada'
+    }
+  ];
 
-    const novoHistorico = [
-      ...(p.historicoEvolucao || []),
-      {
-        data: now,
-        peso: Number(medicao.peso),
-        gordura: Number(medicao.gordura || p.gorduraAtual || 20),
-        massaMagra: Number(medicao.massaMagra || p.massaMagraAtual || 30),
-        cintura: Number(medicao.cintura || p.cinturaAtual || 80),
-        adesao: Number(medicao.adesao || 90),
-        notas: medicao.notas || 'Nova avaliação de retorno registrada'
-      }
-    ];
+  const dadosAtualizados = {
+    pesoAtual: Number(medicao.peso),
+    gorduraAtual: medicao.gordura ? Number(medicao.gordura) : paciente.gorduraAtual,
+    massaMagraAtual: medicao.massaMagra ? Number(medicao.massaMagra) : paciente.massaMagraAtual,
+    cinturaAtual: medicao.cintura ? Number(medicao.cintura) : paciente.cinturaAtual,
+    adesaoPlano: medicao.adesao ? Number(medicao.adesao) : paciente.adesaoPlano,
+    ultima_consulta: now,
+    consultasTotais: (paciente.consultasTotais || 0) + 1,
+    historicoEvolucao: novoHistorico
+  };
 
-    return {
-      ...p,
-      pesoAtual: Number(medicao.peso),
-      gorduraAtual: medicao.gordura ? Number(medicao.gordura) : p.gorduraAtual,
-      massaMagraAtual: medicao.massaMagra ? Number(medicao.massaMagra) : p.massaMagraAtual,
-      cinturaAtual: medicao.cintura ? Number(medicao.cintura) : p.cinturaAtual,
-      adesaoPlano: medicao.adesao ? Number(medicao.adesao) : p.adesaoPlano,
-      ultima_consulta: now,
-      consultasTotais: (p.consultasTotais || 0) + 1,
-      historicoEvolucao: novoHistorico
-    };
-  });
-
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return updated.find(p => p.id === pacienteId);
+  return atualizarPaciente(pacienteId, dadosAtualizados, nutricionistaId);
 }
 
 /**
  * Adiciona um novo arquivo/exame ao prontuário do paciente
  */
 export async function anexarArquivoPaciente(pacienteId, anexoData, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
-  const now = new Date().toISOString();
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
+  const paciente = pacientes.find(p => p.id === pacienteId);
+  if (!paciente) return null;
 
   const novoAnexo = {
     id: `anx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -1187,48 +1331,33 @@ export async function anexarArquivoPaciente(pacienteId, anexoData, nutricionista
     categoria: anexoData.categoria || 'Exame Laboratorial',
     observacao: anexoData.observacao || '',
     dataUrl: anexoData.dataUrl || '',
-    created_at: now
+    created_at: new Date().toISOString()
   };
 
-  const updated = pacientes.map(p => {
-    if (p.id !== pacienteId) return p;
-    const anexosExistentes = Array.isArray(p.anexos) ? p.anexos : [];
-    return {
-      ...p,
-      anexos: [novoAnexo, ...anexosExistentes]
-    };
-  });
+  const anexosExistentes = Array.isArray(paciente.anexos) ? paciente.anexos : [];
+  const dadosAtualizados = { anexos: [novoAnexo, ...anexosExistentes] };
 
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return { novoAnexo, pacienteAtualizado: updated.find(p => p.id === pacienteId) };
+  const pacienteAtualizado = await atualizarPaciente(pacienteId, dadosAtualizados, nutricionistaId);
+  return { novoAnexo, pacienteAtualizado };
 }
 
 /**
  * Remove um arquivo/exame do prontuário do paciente
  */
 export async function removerArquivoPaciente(pacienteId, anexoId, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
+  const paciente = pacientes.find(p => p.id === pacienteId);
+  if (!paciente) return null;
 
-  const updated = pacientes.map(p => {
-    if (p.id !== pacienteId) return p;
-    const anexosFiltrados = (p.anexos || []).filter(a => a.id !== anexoId);
-    return {
-      ...p,
-      anexos: anexosFiltrados
-    };
-  });
-
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return updated.find(p => p.id === pacienteId);
+  const anexosFiltrados = (paciente.anexos || []).filter(a => a.id !== anexoId);
+  return atualizarPaciente(pacienteId, { anexos: anexosFiltrados }, nutricionistaId);
 }
 
 /**
  * Retorna os planos alimentares de um paciente
  */
 export async function getPlanosAlimentares(pacienteId, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
   const p = pacientes.find(item => item.id === pacienteId);
   if (!p) return [];
   return Array.isArray(p.planosAlimentares) ? p.planosAlimentares : [];
@@ -1238,118 +1367,89 @@ export async function getPlanosAlimentares(pacienteId, nutricionistaId) {
  * Salva um novo plano alimentar para o paciente
  */
 export async function salvarPlanoAlimentar(pacienteId, planoData, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
-  const now = new Date().toISOString();
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
+  const paciente = pacientes.find(p => p.id === pacienteId);
+  if (!paciente) return null;
 
   const novoPlano = {
     id: `plano_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
     titulo: planoData.titulo || 'Plano Nutricional Individualizado',
-    dataGeracao: planoData.dataGeracao || now,
+    dataGeracao: planoData.dataGeracao || new Date().toISOString(),
     caloriasTotais: Number(planoData.caloriasTotais) || 1800,
     macros: planoData.macros || { proteina: '120g', gordura: '50g', carboidrato: '200g' },
-    refeicoes: planoData.refeicoes || [
-      { horario: '07:30', nome: 'Café da Manhã', alimentos: '2 ovos mexidos, 1 fatia de pão integral, 1 fruta' },
-      { horario: '12:30', nome: 'Almoço', alimentos: '150g de proteína magra, 120g arroz/tubérculo, legumes e salada' },
-      { horario: '16:30', nome: 'Lanche da Tarde', alimentos: 'Iogurte com aveia e frutas vermelhas' },
-      { horario: '20:00', nome: 'Jantar', alimentos: '140g de peixe ou frango com vegetais cozidos' }
-    ],
+    refeicoes: planoData.refeicoes || [],
     orientacoesGerais: planoData.orientacoesGerais || 'Manter boa ingestão hídrica ao longo de todo o dia.',
-    created_at: now
+    created_at: new Date().toISOString()
   };
 
-  const updated = pacientes.map(p => {
-    if (p.id !== pacienteId) return p;
-    const listaAtual = Array.isArray(p.planosAlimentares) ? p.planosAlimentares : [];
-    return {
-      ...p,
-      planosAlimentares: [novoPlano, ...listaAtual]
-    };
-  });
+  const listaAtual = Array.isArray(paciente.planosAlimentares) ? paciente.planosAlimentares : [];
+  const dadosAtualizados = { planosAlimentares: [novoPlano, ...listaAtual] };
 
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return { novoPlano, pacienteAtualizado: updated.find(p => p.id === pacienteId) };
+  const pacienteAtualizado = await atualizarPaciente(pacienteId, dadosAtualizados, nutricionistaId);
+  return { novoPlano, pacienteAtualizado };
 }
 
 /**
  * Remove um plano alimentar
  */
 export async function removerPlanoAlimentar(pacienteId, planoId, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
+  const paciente = pacientes.find(p => p.id === pacienteId);
+  if (!paciente) return null;
 
-  const updated = pacientes.map(p => {
-    if (p.id !== pacienteId) return p;
-    const listaFiltrada = (p.planosAlimentares || []).filter(pl => pl.id !== planoId);
-    return {
-      ...p,
-      planosAlimentares: listaFiltrada
-    };
-  });
-
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return updated.find(p => p.id === pacienteId);
+  const listaFiltrada = (paciente.planosAlimentares || []).filter(pl => pl.id !== planoId);
+  return atualizarPaciente(pacienteId, { planosAlimentares: listaFiltrada }, nutricionistaId);
 }
 
 /**
- * Registra uma nova consulta clínica completa com evolução (data, peso, cintura, quadril, % gordura, obs, retorno)
+ * Registra uma nova consulta clínica completa com evolução
  */
 export async function registrarConsultaCompleta(pacienteId, dadosConsulta, nutricionistaId) {
-  const { pacientes } = loadDatabase(nutricionistaId);
+  const pacientes = await loadPacientesFromApi(nutricionistaId);
+  const paciente = pacientes.find(p => p.id === pacienteId);
+  if (!paciente) return { pacienteAtualizado: null, retornoAgendado: null };
+
   const dataConsultaIso = dadosConsulta.data ? new Date(dadosConsulta.data).toISOString() : new Date().toISOString();
 
   let novoRetornoAgendado = null;
   if (dadosConsulta.proximoRetorno) {
     const dataRetornoIso = new Date(dadosConsulta.proximoRetorno).toISOString();
-    const pacienteObj = pacientes.find(p => p.id === pacienteId);
-    if (pacienteObj) {
-      novoRetornoAgendado = await agendarConsulta({
-        pacienteId: pacienteId,
-        pacienteNome: pacienteObj.nome,
-        dataConsulta: dataRetornoIso,
-        tipo: 'Consulta de Retorno',
-        modalidade: dadosConsulta.modalidadeRetorno || 'presencial',
-        confirmacao: 'pendente'
-      }, nutricionistaId);
-    }
+    novoRetornoAgendado = await agendarConsulta({
+      pacienteId: pacienteId,
+      pacienteNome: paciente.nome,
+      dataConsulta: dataRetornoIso,
+      tipo: 'Consulta de Retorno',
+      modalidade: dadosConsulta.modalidadeRetorno || 'presencial',
+      confirmacao: 'pendente'
+    }, nutricionistaId);
   }
 
-  const updated = pacientes.map(p => {
-    if (p.id !== pacienteId) return p;
-
-    const novoRegistro = {
-      id: `ev_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      data: dataConsultaIso,
-      peso: Number(dadosConsulta.peso),
-      cintura: dadosConsulta.cintura ? Number(dadosConsulta.cintura) : (p.cinturaAtual || null),
-      quadril: dadosConsulta.quadril ? Number(dadosConsulta.quadril) : (p.quadrilAtual || null),
-      gordura: dadosConsulta.gordura ? Number(dadosConsulta.gordura) : (p.gorduraAtual || null),
-      massaMagra: dadosConsulta.massaMagra ? Number(dadosConsulta.massaMagra) : (p.massaMagraAtual || null),
-      notas: dadosConsulta.observacoes || dadosConsulta.notas || 'Consulta de acompanhamento registrada',
-      proximoRetorno: dadosConsulta.proximoRetorno || null
-    };
-
-    const historicoAtual = Array.isArray(p.historicoEvolucao) ? p.historicoEvolucao : [];
-    const novoHistorico = [...historicoAtual, novoRegistro].sort((a, b) => new Date(a.data) - new Date(b.data));
-
-    return {
-      ...p,
-      pesoAtual: Number(dadosConsulta.peso),
-      cinturaAtual: dadosConsulta.cintura ? Number(dadosConsulta.cintura) : p.cinturaAtual,
-      quadrilAtual: dadosConsulta.quadril ? Number(dadosConsulta.quadril) : p.quadrilAtual,
-      gorduraAtual: dadosConsulta.gordura ? Number(dadosConsulta.gordura) : p.gorduraAtual,
-      massaMagraAtual: dadosConsulta.massaMagra ? Number(dadosConsulta.massaMagra) : p.massaMagraAtual,
-      ultima_consulta: dataConsultaIso,
-      consultasTotais: (p.consultasTotais || 0) + 1,
-      historicoEvolucao: novoHistorico
-    };
-  });
-
-  localStorage.setItem(STORAGE_KEY_PACIENTES, JSON.stringify(updated));
-  notifyDatabaseChange();
-  return {
-    pacienteAtualizado: updated.find(p => p.id === pacienteId),
-    retornoAgendado: novoRetornoAgendado
+  const novoRegistro = {
+    id: `ev_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    data: dataConsultaIso,
+    peso: Number(dadosConsulta.peso),
+    cintura: dadosConsulta.cintura ? Number(dadosConsulta.cintura) : (paciente.cinturaAtual || null),
+    quadril: dadosConsulta.quadril ? Number(dadosConsulta.quadril) : (paciente.quadrilAtual || null),
+    gordura: dadosConsulta.gordura ? Number(dadosConsulta.gordura) : (paciente.gorduraAtual || null),
+    massaMagra: dadosConsulta.massaMagra ? Number(dadosConsulta.massaMagra) : (paciente.massaMagraAtual || null),
+    notas: dadosConsulta.observacoes || dadosConsulta.notas || 'Consulta de acompanhamento registrada',
+    proximoRetorno: dadosConsulta.proximoRetorno || null
   };
-}
 
+  const historicoAtual = Array.isArray(paciente.historicoEvolucao) ? paciente.historicoEvolucao : [];
+  const novoHistorico = [...historicoAtual, novoRegistro].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+  const dadosAtualizados = {
+    pesoAtual: Number(dadosConsulta.peso),
+    cinturaAtual: dadosConsulta.cintura ? Number(dadosConsulta.cintura) : paciente.cinturaAtual,
+    quadrilAtual: dadosConsulta.quadril ? Number(dadosConsulta.quadril) : paciente.quadrilAtual,
+    gorduraAtual: dadosConsulta.gordura ? Number(dadosConsulta.gordura) : paciente.gorduraAtual,
+    massaMagraAtual: dadosConsulta.massaMagra ? Number(dadosConsulta.massaMagra) : paciente.massaMagraAtual,
+    ultima_consulta: dataConsultaIso,
+    consultasTotais: (paciente.consultasTotais || 0) + 1,
+    historicoEvolucao: novoHistorico
+  };
+
+  const pacienteAtualizado = await atualizarPaciente(pacienteId, dadosAtualizados, nutricionistaId);
+  return { pacienteAtualizado, retornoAgendado: novoRetornoAgendado };
+}
